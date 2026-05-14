@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GA³Ops — Brij Mohan</title>
+  <meta name="description" content="Graph-Augmented Agentic AIOps with Trust-Governed Digital Twins for Autonomous Cloud Workload Intelligence. Springer LNCS 2026." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=JetBrains+Mono:wght@300;400;500&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #07090f; --bg2: #0d1117; --bg3: #131922;
+      --gold: #c9a84c; --gold-dim: #8a6e2f;
+      --text: #e8e6e0; --text-dim: #8a8880; --text-faint: #3a3835;
+      --border: #1e2530; --radius: 4px;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Lato', sans-serif; font-weight: 300; line-height: 1.7; }
+
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.25rem 3rem;
+      background: rgba(7,9,15,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--gold); letter-spacing: 0.15em; text-decoration: none; }
+    .nav-back { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--text-dim); text-decoration: none; text-transform: uppercase; transition: color 0.2s; }
+    .nav-back:hover { color: var(--gold); }
+
+    .paper-hero {
+      padding: 5rem 3rem 3.5rem;
+      border-bottom: 1px solid var(--border);
+      max-width: 860px;
+    }
+    .paper-eyebrow {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.2em;
+      color: var(--gold); text-transform: uppercase; margin-bottom: 1.25rem;
+      display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+    }
+    .eyebrow-badge {
+      border: 1px solid var(--gold-dim); background: rgba(201,168,76,0.06);
+      padding: 0.2rem 0.65rem; border-radius: 2px;
+    }
+    .paper-title {
+      font-family: 'Playfair Display', serif; font-size: clamp(1.5rem, 3.5vw, 2.4rem);
+      font-weight: 700; line-height: 1.25; margin-bottom: 1.5rem; color: var(--text);
+    }
+    .paper-authors {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; letter-spacing: 0.05em;
+      color: var(--text-dim); margin-bottom: 1.5rem; line-height: 1.7;
+    }
+    .paper-authors strong { color: var(--gold); }
+    .paper-action-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .btn {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.1em;
+      text-transform: uppercase; text-decoration: none; padding: 0.65rem 1.4rem;
+      border-radius: var(--radius); transition: all 0.2s;
+    }
+    .btn-primary { background: var(--gold); color: var(--bg); font-weight: 500; }
+    .btn-primary:hover { background: #e0ba60; }
+    .btn-secondary { border: 1px solid var(--border); color: var(--text-dim); }
+    .btn-secondary:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+    .content { max-width: 860px; padding: 4rem 3rem; }
+
+    .section-label {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.2em;
+      color: var(--gold); text-transform: uppercase; margin-bottom: 1rem;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .abstract-block {
+      background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--gold-dim);
+      border-radius: var(--radius); padding: 2rem; margin-bottom: 3rem;
+    }
+    .abstract-block p { font-size: 0.975rem; color: var(--text-dim); line-height: 1.9; }
+
+    .meta-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem; margin-bottom: 3rem;
+    }
+    .meta-item {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+    .meta-key {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--text-faint); margin-bottom: 0.35rem;
+    }
+    .meta-val { font-size: 0.875rem; color: var(--text); line-height: 1.4; }
+    .meta-val a { color: var(--gold); text-decoration: none; }
+    .meta-val a:hover { text-decoration: underline; }
+
+    .tech-section { margin-bottom: 3rem; }
+    .tech-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+    .tech-chip {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.06em;
+      color: var(--text-dim); border: 1px solid var(--border); padding: 0.3rem 0.75rem;
+      border-radius: 2px; transition: border-color 0.2s, color 0.2s;
+    }
+    .tech-chip:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+    .placeholder-note {
+      border: 1px dashed var(--border); border-radius: var(--radius);
+      padding: 2rem; text-align: center; margin-bottom: 3rem;
+    }
+    .placeholder-note p {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+      letter-spacing: 0.08em; color: var(--text-faint);
+    }
+
+    footer {
+      padding: 2rem 3rem; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    footer p { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em; color: var(--text-faint); }
+    footer a { color: var(--gold-dim); text-decoration: none; }
+    footer a:hover { color: var(--gold); }
+
+    @media (max-width: 768px) {
+      nav { padding: 1rem 1.5rem; }
+      .paper-hero, .content { padding-left: 1.5rem; padding-right: 1.5rem; }
+      footer { flex-direction: column; gap: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="../../" class="nav-logo">BM / bmdayal</a>
+    <a href="../" class="nav-back">← Research</a>
+  </nav>
+
+  <div class="paper-hero">
+    <div class="paper-eyebrow">
+      <span class="eyebrow-badge">Springer LNCS</span>
+      <span>2026</span>
+      <span>·</span>
+      <span>Peer-Reviewed</span>
+    </div>
+    <h1 class="paper-title">
+      Graph-Augmented Agentic AIOps with Trust-Governed Digital Twins for Autonomous Cloud Workload Intelligence
+    </h1>
+    <div class="paper-authors">
+      <strong>Brij Mohan</strong> &nbsp;·&nbsp; Uday Kiran Chilakalapalli &nbsp;·&nbsp; LPL Financial
+    </div>
+    <div class="paper-action-links">
+      <!-- Update href with the actual Springer link once available -->
+      <a href="#" class="btn btn-primary">Read Paper →</a>
+      <a href="https://scholar.google.com/citations?user=OJgNT_oAAAAJ&hl=en" class="btn btn-secondary" target="_blank">Google Scholar</a>
+      <a href="https://orcid.org/0009-0001-3374-591X" class="btn btn-secondary" target="_blank">OrcID</a>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <div class="section-label">Abstract</div>
+    <div class="abstract-block">
+      <!-- Replace with the real abstract when you share the paper link -->
+      <p>
+        This paper introduces GA³Ops (Graph-Augmented Agentic AIOps), a framework leveraging trust-governed digital twins for autonomous cloud workload intelligence. The system integrates graph neural networks, temporal reasoning, and multi-agent reinforcement learning to enable self-healing, adaptive cloud operations with quantifiable trust guarantees.
+      </p>
+      <br />
+      <p style="font-style: italic; font-size: 0.85rem;">
+        <!-- Placeholder — update with the real abstract -->
+        Full abstract will be updated with the published version link.
+      </p>
+    </div>
+
+    <div class="section-label">Paper Details</div>
+    <div class="meta-grid">
+      <div class="meta-item">
+        <div class="meta-key">Venue</div>
+        <div class="meta-val">Springer Lecture Notes in Computer Science (LNCS)</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-key">Year</div>
+        <div class="meta-val">2026</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-key">Authors</div>
+        <div class="meta-val">Brij Mohan, Uday Kiran Chilakalapalli</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-key">Framework</div>
+        <div class="meta-val">GA³Ops</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-key">DOI / Link</div>
+        <div class="meta-val"><a href="#">Available upon publication</a></div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-key">Cites</div>
+        <div class="meta-val"><a href="../ieee-ccwc-2026/">Mohan, Surasani, Kumar — IEEE CCWC 2026</a></div>
+      </div>
+    </div>
+
+    <div class="section-label">Technologies &amp; Methods</div>
+    <div class="tech-section">
+      <div class="tech-chips">
+        <span class="tech-chip">Trust-Hierarchical Knowledge Graph (THKG)</span>
+        <span class="tech-chip">Trust-Governed Neural Network (TGNN)</span>
+        <span class="tech-chip">Variational Autoencoder (VAE)</span>
+        <span class="tech-chip">Temporal Fusion Transformer</span>
+        <span class="tech-chip">CMDP</span>
+        <span class="tech-chip">Dyna-Q</span>
+        <span class="tech-chip">MARL</span>
+        <span class="tech-chip">LangGraph</span>
+        <span class="tech-chip">Amazon Neptune</span>
+        <span class="tech-chip">AWS SageMaker</span>
+        <span class="tech-chip">Digital Twins</span>
+        <span class="tech-chip">Agentic AI</span>
+      </div>
+    </div>
+
+    <div class="section-label">Full Paper</div>
+    <div class="placeholder-note">
+      <p>Paper link will be added here once published. &nbsp;·&nbsp; Check <a href="https://scholar.google.com/citations?user=OJgNT_oAAAAJ&hl=en" style="color:var(--gold-dim)" target="_blank">Google Scholar</a> for the latest.</p>
+    </div>
+
+  </div>
+
+  <footer>
+    <p>© 2026 Brij Mohan · <a href="../../">bmdayal.github.io</a></p>
+    <p><a href="../">← All Research</a></p>
+  </footer>
+
+</body>
+</html>
