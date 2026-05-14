@@ -1,67 +1,154 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Blog — Brij Mohan</title>
-<meta name="description" content="Brij Mohan's blog topics and articles on AI, function calling, and engineering leadership." />
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #080c14;
-    --surface: #0f1623;
-    --border: #1e2d4a;
-    --text: #e2e8f0;
-    --muted: #94a3b8;
-    --accent: #3b82f6;
-    --gold: #c9a84c;
-    --text-dim: #8a8880;
-    --radius: 12px;
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: 'Lato', sans-serif; line-height: 1.7; }
-  nav {
-    position: sticky; top: 0; z-index: 100;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1.25rem 3rem;
-    background: rgba(8,12,20,0.92); backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
-  }
-  .nav-logo { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; letter-spacing: 0.15em; color: var(--gold); text-decoration: none; }
-  .nav-back { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--text-dim); text-decoration: none; text-transform: uppercase; transition: color 0.2s; }
-  .nav-back:hover { color: var(--gold); }
-  .page { max-width: 860px; margin: 0 auto; padding: 3rem 1.5rem; }
-  a { color: var(--accent); text-decoration: none; }
-  .heading { margin-bottom: 2rem; }
-  .heading h1 { font-family: 'JetBrains Mono', monospace; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: 0.05em; }
-  .heading p { color: var(--muted); margin-top: 0.75rem; max-width: 720px; }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.75rem; margin-bottom: 1rem; }
-  .card h2 { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; margin-bottom: 0.75rem; }
-  .card p { color: var(--muted); margin-bottom: 1rem; }
-  .card a { font-weight: 600; }
-  .note { color: var(--muted); font-size: 0.95rem; margin-top: 2rem; }
-  @media (max-width: 640px) { .page { padding: 2rem 1rem; } }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blog — Brij Mohan</title>
+  <meta name="description" content="Brij Mohan's writing on AI engineering, function calling, agentic systems, and production software." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=JetBrains+Mono:wght@300;400;500&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #07090f; --bg2: #0d1117; --bg3: #131922;
+      --gold: #c9a84c; --gold-dim: #8a6e2f;
+      --text: #e8e6e0; --text-dim: #8a8880; --text-faint: #3a3835;
+      --border: #1e2530; --radius: 4px;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Lato', sans-serif; font-weight: 300; line-height: 1.7; }
+
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.25rem 3rem;
+      background: rgba(7,9,15,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--gold); letter-spacing: 0.15em; text-decoration: none; }
+    .nav-back { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--text-dim); text-decoration: none; text-transform: uppercase; transition: color 0.2s; }
+    .nav-back:hover { color: var(--gold); }
+
+    .page-hero {
+      padding: 5rem 3rem 3rem; border-bottom: 1px solid var(--border);
+      position: relative; overflow: hidden;
+    }
+    .page-hero::before {
+      content: 'BLOG';
+      position: absolute; right: 2rem; top: 50%; transform: translateY(-50%);
+      font-family: 'Playfair Display', serif; font-size: 7rem; font-weight: 900;
+      color: var(--text-faint); letter-spacing: -0.04em; pointer-events: none; user-select: none;
+    }
+    .page-eyebrow {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.2em;
+      color: var(--gold); text-transform: uppercase; margin-bottom: 1rem;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .page-eyebrow::before { content: ''; display: inline-block; width: 24px; height: 1px; background: var(--gold); }
+    .page-title { font-family: 'Playfair Display', serif; font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 900; line-height: 1.1; margin-bottom: 1rem; }
+    .page-subtitle { font-size: 1rem; color: var(--text-dim); max-width: 560px; line-height: 1.85; }
+
+    .content { max-width: 900px; margin: 0 auto; padding: 4rem 3rem; }
+
+    .section-label {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.2em;
+      color: var(--gold); text-transform: uppercase; margin-bottom: 1.5rem;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .posts { display: flex; flex-direction: column; gap: 1.5rem; }
+
+    .post-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 2rem; text-decoration: none; color: inherit; display: block;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .post-card:hover { border-color: var(--gold-dim); background: var(--bg3); }
+
+    .post-meta {
+      display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-bottom: 0.85rem;
+    }
+    .post-tag {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--gold);
+      border: 1px solid var(--gold-dim); background: rgba(201,168,76,0.06);
+      padding: 0.2rem 0.6rem; border-radius: 2px;
+    }
+    .post-date {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em;
+      color: var(--text-faint);
+    }
+    .post-title {
+      font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 700;
+      color: var(--text); margin-bottom: 0.6rem; line-height: 1.4;
+    }
+    .post-desc {
+      font-size: 0.875rem; color: var(--text-dim); line-height: 1.8; margin-bottom: 1.25rem;
+    }
+    .post-link {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--gold);
+      border: 1px solid var(--gold-dim); padding: 0.35rem 0.85rem; border-radius: var(--radius);
+      display: inline-block; transition: background 0.2s;
+    }
+    .post-card:hover .post-link { background: rgba(201,168,76,0.08); }
+
+    footer {
+      padding: 2rem 3rem; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; margin-top: 2rem;
+    }
+    footer p { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em; color: var(--text-faint); }
+    footer a { color: var(--gold-dim); text-decoration: none; }
+    footer a:hover { color: var(--gold); }
+
+    @media (max-width: 768px) {
+      nav { padding: 1rem 1.5rem; }
+      .page-hero { padding: 4rem 1.5rem 2rem; }
+      .page-hero::before { display: none; }
+      .content { padding: 2rem 1.5rem; }
+      footer { flex-direction: column; gap: 0.5rem; }
+    }
+  </style>
 </head>
 <body>
+
   <nav>
     <a href="/" class="nav-logo">BM / bmdayal</a>
     <a href="/" class="nav-back">← Home</a>
   </nav>
-  <main class="page">
-    <div class="heading">
-      <h1>Blog</h1>
-      <p>Browse topic-based posts covering AI engineering, function calling, and production systems.</p>
+
+  <div class="page-hero">
+    <div class="page-eyebrow">Engineering &amp; AI Writing</div>
+    <h1 class="page-title">Blog</h1>
+    <p class="page-subtitle">
+      Writing on AI engineering, function calling, agentic systems, and production software from the field.
+    </p>
+  </div>
+
+  <div class="content">
+    <div class="section-label">Articles</div>
+    <div class="posts">
+
+      <a href="./function-calling/" class="post-card">
+        <div class="post-meta">
+          <span class="post-tag">Engineering in Production</span>
+          <span class="post-date">2025</span>
+        </div>
+        <div class="post-title">Function Calling in Production: What Nobody Tells You</div>
+        <div class="post-desc">
+          Building a multi-agent financial planning system taught us that the model is rarely the hard part.
+          Deep dive into schema design, circuit breakers, observability, and prompt injection defence for real-world agentic systems.
+        </div>
+        <span class="post-link">Read article →</span>
+      </a>
+
     </div>
+  </div>
 
-    <article class="card">
-      <h2><a href="./function-calling/">Function Calling in Production: What Nobody Tells You</a></h2>
-      <p>Deep dive into building reliable function calling and multi-agent orchestration for real-world systems.</p>
-      <a href="./function-calling/">Read article →</a>
-    </article>
+  <footer>
+    <p>© 2026 Brij Mohan · <a href="/">bmdayal.github.io</a></p>
+    <p><a href="https://scholar.google.com/citations?user=OJgNT_oAAAAJ&hl=en" target="_blank">Google Scholar</a> &nbsp;·&nbsp; <a href="/research/">Research</a></p>
+  </footer>
 
-    <div class="note">More topic folders can be added later under <code>blog/</code> as new posts are published.</div>
-  </main>
 </body>
 </html>
