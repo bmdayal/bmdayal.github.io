@@ -22,6 +22,8 @@
   --muted:     #64748b;
   --subtle:    #94a3b8;
   --code-bg:   #0d1117;
+  --gold:      #c9a84c;
+  --text-dim:  #8a8880;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -38,10 +40,16 @@ body {
 /* ── Layout ── */
 .container  { max-width: 860px; margin: 0 auto; padding: 0 2rem; }
 .wide       { max-width: 1060px; margin: 0 auto; padding: 0 2rem; }
-.page-nav { display: flex; align-items: center; justify-content: space-between; max-width: 860px; margin: 0 auto; padding: 1.5rem 2rem 0; gap: 1rem; }
-.nav-logo { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; letter-spacing: 0.16em; color: var(--blue); text-decoration: none; }
-.nav-back { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--muted); text-decoration: none; text-transform: uppercase; letter-spacing: 0.08em; }
-.nav-back:hover { color: var(--text); }
+nav {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.25rem 3rem;
+  background: rgba(8,12,20,0.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; letter-spacing: 0.15em; color: var(--gold); text-decoration: none; }
+.nav-back { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--text-dim); text-decoration: none; text-transform: uppercase; transition: color 0.2s; }
+.nav-back:hover { color: var(--gold); }
 /* ── Hero ── */
 .hero {
   background: linear-gradient(160deg, #0a1628 0%, #080c14 60%);
@@ -266,7 +274,7 @@ footer a { color: var(--blue); text-decoration: none; }
 </style>
 </head>
 <body>
-  <nav class="page-nav">
+  <nav>
     <a href="/" class="nav-logo">BM / bmdayal</a>
     <a href="/blog/" class="nav-back">← Blog</a>
   </nav>
