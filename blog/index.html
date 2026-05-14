@@ -19,6 +19,10 @@
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: 'Lato', sans-serif; line-height: 1.7; }
+  .page-nav { display: flex; align-items: center; justify-content: space-between; max-width: 860px; margin: 0 auto; padding: 1.5rem 1.5rem 0; gap: 1rem; }
+  .nav-logo { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; letter-spacing: 0.16em; color: var(--accent); text-decoration: none; }
+  .nav-back { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--muted); text-decoration: none; text-transform: uppercase; letter-spacing: 0.08em; }
+  .nav-back:hover { color: var(--text); }
   .page { max-width: 860px; margin: 0 auto; padding: 3rem 1.5rem; }
   a { color: var(--accent); text-decoration: none; }
   .heading { margin-bottom: 2rem; }
@@ -33,6 +37,10 @@
 </style>
 </head>
 <body>
+  <nav class="page-nav">
+    <a href="/" class="nav-logo">BM / bmdayal</a>
+    <a href="/" class="nav-back">← Home</a>
+  </nav>
   <main class="page">
     <div class="heading">
       <h1>Blog</h1>
