@@ -197,7 +197,7 @@
   <div class="paper-hero">
     <div class="paper-eyebrow">
       <span class="eyebrow-badge">Engineering in Production</span>
-      <span>2025</span>
+      <span>2026</span>
       <span>·</span>
       <span>AI Architecture</span>
     </div>
@@ -218,7 +218,7 @@
     <div class="meta-grid">
       <div class="meta-item">
         <div class="meta-key">Published</div>
-        <div class="meta-val">2025</div>
+        <div class="meta-val">2026</div>
       </div>
       <div class="meta-item">
         <div class="meta-key">Topic</div>
@@ -435,7 +435,7 @@
             <text x="690" y="178" text-anchor="middle" fill="#ef4444" font-family="JetBrains Mono" font-size="10" font-weight="500">Tokens Used</text>
             <text x="690" y="200" text-anchor="middle" fill="#fca5a5" font-family="JetBrains Mono" font-size="18" font-weight="500">98%</text>
             <text x="690" y="218" text-anchor="middle" fill="#9b5555" font-family="JetBrains Mono" font-size="8">→ OutOfTokens error</text>
-            <text x="390" y="262" text-anchor="middle" fill="#7f1d1d" font-family="JetBrains Mono" font-size="9">Loop iterations: [N] · Duration: ~2 min · Detection: Token exhaustion</text>
+            <text x="390" y="262" text-anchor="middle" fill="#7f1d1d" font-family="JetBrains Mono" font-size="9">Loop iterations: 23 · Duration: ~2 min · Detection: Token exhaustion</text>
           </svg>
           <div class="diagram-caption">Figure 3 — The deadlock: Orchestrator calls Retirement Agent; Retirement Agent calls Orchestrator; repeat until token budget is exhausted</div>
         </div>
@@ -607,7 +607,7 @@ If confidence < 0.75 or ambiguities is non-empty:
 
         <p>After the deadlock, our philosophy shifted: never again find out something is wrong because we ran out of tokens. Preventive, not reactive.</p>
 
-        <div class="warn"><strong>AWS Note:</strong> Confirm metric namespaces before citing on air. Model-level metrics: <code>AWS/Bedrock</code>. Agent-specific metrics for Bedrock AgentCore: verify in your console — may be <code>AWS/BedrockAgent</code>. Exact metric names matter.</div>
+        <p>AWS Bedrock emits per-invocation metrics to CloudWatch under the <code>AWS/Bedrock</code> namespace. We instrument four signal groups: token consumption (<code>InputTokenCount</code>, <code>OutputTokenCount</code>) to track budget burn per agent; <code>InvocationCount</code> to baseline request volume; <code>InvocationThrottles</code> and <code>InvocationClientErrors</code> to catch capacity and validation failures early. For token distribution visibility, we use CloudWatch metric math to compute p50/p95/p99 on <code>InputTokenCount</code> per agent — this surfaces runaway agents before they hit the budget ceiling. We alarm at 3,600 tokens per agent session (90% of the 4,000-token ceiling), which gives the middleware time to return a graceful partial result rather than an abrupt error.</p>
 
         <div class="diagram-wrap">
           <svg viewBox="0 0 780 380" xmlns="http://www.w3.org/2000/svg">
@@ -616,10 +616,12 @@ If confidence < 0.75 or ambiguities is non-empty:
             <text x="390" y="64" text-anchor="middle" fill="#93c5fd" font-family="JetBrains Mono" font-size="11" font-weight="500">AgentCore Runtime</text>
             <text x="390" y="82" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">multi-agent chain executing</text>
             <rect x="20" y="148" width="185" height="80" rx="4" fill="#141c2e" stroke="#3b82f6" stroke-width="1.5"/>
-            <text x="112" y="172" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono" font-size="10" font-weight="500">CloudWatch Metrics</text>
-            <text x="112" y="190" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">InputTokenCount</text>
-            <text x="112" y="204" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">OutputTokenCount</text>
-            <text x="112" y="218" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">InvocationLatency</text>
+            <text x="112" y="165" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono" font-size="10" font-weight="500">CloudWatch Metrics</text>
+            <text x="112" y="178" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">InputTokenCount</text>
+            <text x="112" y="189" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">OutputTokenCount</text>
+            <text x="112" y="200" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">InvocationCount</text>
+            <text x="112" y="211" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">InvocationThrottles</text>
+            <text x="112" y="222" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">InvocationClientErrors</text>
             <rect x="225" y="148" width="185" height="80" rx="4" fill="#141c2e" stroke="#8b5cf6" stroke-width="1.5"/>
             <text x="317" y="172" text-anchor="middle" fill="#c4b5fd" font-family="JetBrains Mono" font-size="10" font-weight="500">CW Logs Insights</text>
             <text x="317" y="190" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">Agent trace per step</text>
@@ -637,7 +639,7 @@ If confidence < 0.75 or ambiguities is non-empty:
             <text x="685" y="218" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">7-day rolling avg</text>
             <rect x="180" y="290" width="420" height="64" rx="4" fill="#0d1f14" stroke="#10b981" stroke-width="2"/>
             <text x="390" y="316" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="11" font-weight="500">Budget Fencing — Middleware</text>
-            <text x="390" y="336" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">Hard stop at 90% of token ceiling  ·  Code-enforced  ·  Prompt cannot override  ·  Graceful return</text>
+            <text x="390" y="336" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">Hard stop at 3,600 tokens (90% of 4,000)  ·  Code-enforced  ·  Prompt cannot override  ·  Graceful return</text>
             <line x1="340" y1="94" x2="140" y2="147" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#a1)"/>
             <line x1="370" y1="94" x2="320" y2="147" stroke="#8b5cf6" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#a3)"/>
             <line x1="430" y1="94" x2="490" y2="147" stroke="#10b981" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#a2)"/>
@@ -645,7 +647,7 @@ If confidence < 0.75 or ambiguities is non-empty:
             <line x1="112" y1="228" x2="240" y2="289" stroke="#374151" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a2)"/>
             <line x1="317" y1="228" x2="330" y2="289" stroke="#374151" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a2)"/>
             <line x1="510" y1="228" x2="450" y2="289" stroke="#374151" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a2)"/>
-            <text x="53" y="248" fill="#ef4444" font-family="JetBrains Mono" font-size="8">⚑ alarm at 3,500</text>
+            <text x="53" y="248" fill="#ef4444" font-family="JetBrains Mono" font-size="8">⚑ alarm at 3,600</text>
             <text x="243" y="248" fill="#ef4444" font-family="JetBrains Mono" font-size="8">⚑ &gt;12 calls/60s</text>
             <text x="455" y="248" fill="#10b981" font-family="JetBrains Mono" font-size="8">trace_id per request</text>
           </svg>
@@ -766,8 +768,6 @@ fields @timestamp, session_id, agent_name, token_count
           </svg>
           <div class="diagram-caption">Figure 8 — Intelligent model routing. ~60-70% of queries are simple lookups that don't need your most capable model.</div>
         </div>
-
-        <div class="callout">Groq is an inference <em>provider</em> (fast, open-source models — LLaMA, Mixtral). Grok is xAI's model. Know which you mean before you say it on air.</div>
 
         <div class="callout amber">Don't over-engineer the router. A complex routing layer is just another failure point. Keep heuristics simple and err toward the capable model when in doubt. A wrong answer from under-routing is more expensive than a higher API bill.</div>
       </section>
