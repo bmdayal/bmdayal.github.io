@@ -250,6 +250,7 @@
         <li><a href="#observability">Observability &amp; Preventive Monitoring</a></li>
         <li><a href="#migration">Migration: Don't Rewrite, Rewrap</a></li>
         <li><a href="#routing">Intelligent Model Routing</a></li>
+        <li><a href="#confidence">Confidence-Gated Execution &amp; Human-in-Governance</a></li>
         <li><a href="#conclusion">What I'd Tell My Past Self</a></li>
       </ol>
     </div>
@@ -392,6 +393,8 @@
 
         <p>Notice what's happening at each layer. The LLM orchestrator handles language understanding and routing — this is where probabilistic reasoning belongs. Specialist agents handle domain-specific coordination. The tool layer wraps deterministic functions. The deterministic code layer is pure math: same input, same output, every time.</p>
 
+        <p>And the regulatory constraints the rules engine has to check are genuinely non-trivial: IRS 401(k) annual contribution limits ($23,500 in 2025, with a $7,500 catch-up for those 50+), Required Minimum Distribution rules (mandatory withdrawals starting at age 73, or 75 for those born after 1960 under SECURE 2.0), the 10% early withdrawal penalty before age 59½, Social Security claiming strategy between ages 62 and 70, and applicable ERISA obligations for any employer-sponsored plans involved. Each of those is a separate function call to a separate rules engine.</p>
+
         <div class="callout amber">Each hop in this chain is a potential failure point. What if the tax service times out on call three? What if the Monte Carlo model returns a probability range and the model doesn't know how to reason about uncertainty? What if a user input redirects which account gets queried?</div>
       </section>
 
@@ -401,11 +404,13 @@
       <section id="deadlock">
         <h2><span class="num">// 03</span>The Deadlock Incident</h2>
 
-        <p>Six months ago, building this system, we experienced every engineer's nightmare: an infinite loop that burned our entire token budget before we knew what happened.</p>
+        <p>Six months ago, building this system on AWS Bedrock, we experienced every engineer's nightmare: an infinite loop that burned our entire token budget before we knew what happened.</p>
 
         <p>The architecture had an orchestrator agent and three specialist agents. We made one mistake: we trusted the orchestrator completely. Our prompt said, roughly: <em>"you are a financial planning orchestrator, here are your agents, decide who to call."</em></p>
 
         <p>What we didn't account for: when the retirement agent received an ambiguous request, it tried to gather more context — by calling back up to the orchestrator. The orchestrator, not recognising this as a re-entry, treated it as a new request and called the retirement agent again.</p>
+
+        <p>We didn't catch it from a monitoring alarm or a timeout. We caught it when we started getting an <code>InvokeModelWithResponseStream validation error: Too many tokens</code> from Claude Haiku. Our POC was provisioned with a 1 million token budget — and the loop had consumed all of it before we knew anything was wrong. We only found out by starting to debug the error.</p>
 
         <div class="diagram-wrap">
           <svg viewBox="0 0 780 280" xmlns="http://www.w3.org/2000/svg">
@@ -435,7 +440,7 @@
             <text x="690" y="178" text-anchor="middle" fill="#ef4444" font-family="JetBrains Mono" font-size="10" font-weight="500">Tokens Used</text>
             <text x="690" y="200" text-anchor="middle" fill="#fca5a5" font-family="JetBrains Mono" font-size="18" font-weight="500">98%</text>
             <text x="690" y="218" text-anchor="middle" fill="#9b5555" font-family="JetBrains Mono" font-size="8">→ OutOfTokens error</text>
-            <text x="390" y="262" text-anchor="middle" fill="#7f1d1d" font-family="JetBrains Mono" font-size="9">Loop iterations: 23 · Duration: ~2 min · Detection: Token exhaustion</text>
+            <text x="390" y="262" text-anchor="middle" fill="#7f1d1d" font-family="JetBrains Mono" font-size="9">1M token budget · Duration: ~2 min · Detection: Out of Tokens error → debug</text>
           </svg>
           <div class="diagram-caption">Figure 3 — The deadlock: Orchestrator calls Retirement Agent; Retirement Agent calls Orchestrator; repeat until token budget is exhausted</div>
         </div>
@@ -546,6 +551,8 @@ STRICT RULES:
         <h2><span class="num">// 05</span>Guardrails &amp; Prompt Injection Defence</h2>
 
         <p>We had two distinct problems, and they needed different solutions. The first was external — users trying to manipulate the system. The second was internal — the model's own behaviour causing runaway chains when given ambiguous inputs.</p>
+
+        <p>Both came out of our internal Dev/QA security testing phase. Before moving toward production, we built a set of AI agents specifically designed to attack the system — using LLMs as testers, or what's sometimes called <strong>LLM as a Judge</strong>. Rather than writing static adversarial test cases by hand, these agents generated prompts dynamically and evaluated whether the financial planning agent could be manipulated. The failure modes they found were more creative and varied than anything we'd have written manually.</p>
 
         <div class="diagram-wrap">
           <svg viewBox="0 0 780 340" xmlns="http://www.w3.org/2000/svg">
@@ -668,7 +675,7 @@ fields @timestamp, session_id, agent_name, token_count
       <section id="migration">
         <h2><span class="num">// 07</span>Migration: Don't Rewrite, Rewrap</h2>
 
-        <p>The question every team asks: <em>"Do we rewrite everything to go agentic?"</em> Almost always, the answer is no. The legacy code you're tempted to throw away encodes years of regulatory knowledge, edge cases, and validated financial logic. A startup building from scratch doesn't have that. It's your moat.</p>
+        <p>The question every team asks: <em>"Do we rewrite everything to go agentic?"</em> We were migrating from a combination of rule-based engines and manual paper-based workflows — years of accumulated business logic, regulatory rules, and institutional knowledge encoded in systems that were never designed for AI. Almost always the answer is no. The legacy code you're tempted to throw away encodes years of regulatory knowledge, edge cases, and validated financial logic. A startup building from scratch doesn't have that. It's your moat.</p>
 
         <div class="diagram-wrap">
           <svg viewBox="0 0 780 240" xmlns="http://www.w3.org/2000/svg">
@@ -711,6 +718,10 @@ fields @timestamp, session_id, agent_name, token_count
           </svg>
           <div class="diagram-caption">Figure 7 — The migration pattern: wrap, don't rewrite. Legacy code stays untouched. Clean wrapper + rich schema = reliable tool calls.</div>
         </div>
+
+        <h3>The Pattern: Wrap and Expose via AgentCore</h3>
+
+        <p>You take your existing rule-based functions and SQL queries and wrap them as tools, exposed through AWS AgentCore — the managed runtime that lets you deploy and scale the agent layer without rebuilding the underlying calculation infrastructure. The model calls the tool; the tool runs the existing validated code; the result comes back. None of the financial logic changed.</p>
 
         <h3>Three Things That Bite You During Migration</h3>
 
@@ -770,13 +781,100 @@ fields @timestamp, session_id, agent_name, token_count
         </div>
 
         <div class="callout amber">Don't over-engineer the router. A complex routing layer is just another failure point. Keep heuristics simple and err toward the capable model when in doubt. A wrong answer from under-routing is more expensive than a higher API bill.</div>
+
+        <p class="callout">Note: Groq is an inference <em>provider</em> running open-source models (LLaMA, Mixtral) — not to be confused with Grok, which is xAI's model.</p>
       </section>
 
       <hr class="section-divider">
 
-      <!-- ── 9. CONCLUSION ── -->
+      <!-- ── 9. CONFIDENCE-GATED EXECUTION ── -->
+      <section id="confidence">
+        <h2><span class="num">// 09</span>Confidence-Gated Execution &amp; Human-in-Governance</h2>
+
+        <p>Model routing decides <em>which</em> model handles a request. But there's a second routing decision that matters just as much in financial services: based on how confident the system is in its output, what happens next — and who is responsible for it?</p>
+
+        <p>A common framing in AI is <em>human in the loop</em>. But at the pace of financial calculations — a system processing thousands of planning queries across an advisor platform — humans cannot be inline approvers of every decision. That's not a practical model, and it's not what regulators actually require. What we've moved toward instead is <strong>human in governance</strong>. Humans don't approve each calculation. They define the rules, set the thresholds, review the exceptions, and continuously calibrate the system. The governance is upstream, not inline.</p>
+
+        <div class="insight"><p>Human-in-the-loop assumes humans can keep pace with the system. Human-in-governance acknowledges they can't — and designs the oversight layer accordingly.</p></div>
+
+        <p>After the agent chain completes and produces a result, the model scores its own confidence in that output. That score determines the execution pathway.</p>
+
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 780 340" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="cg1" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#ef4444"/></marker>
+              <marker id="cg2" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#f59e0b"/></marker>
+              <marker id="cg3" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#10b981"/></marker>
+            </defs>
+            <!-- Confidence Score box -->
+            <rect x="290" y="10" width="200" height="50" rx="4" fill="#141c2e" stroke="#8b5cf6" stroke-width="1.5"/>
+            <text x="390" y="32" text-anchor="middle" fill="#c4b5fd" font-family="JetBrains Mono" font-size="11" font-weight="500">Confidence Score</text>
+            <text x="390" y="52" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">model self-evaluates output</text>
+            <!-- Below 80 -->
+            <rect x="20" y="120" width="200" height="80" rx="4" fill="#2a1515" stroke="#ef4444" stroke-width="1.5"/>
+            <text x="120" y="146" text-anchor="middle" fill="#fca5a5" font-family="JetBrains Mono" font-size="10" font-weight="500">Below 80%</text>
+            <text x="120" y="164" text-anchor="middle" fill="#9b5555" font-family="JetBrains Mono" font-size="8">→ Human Review Queue</text>
+            <text x="120" y="180" text-anchor="middle" fill="#9b5555" font-family="JetBrains Mono" font-size="8">Advisor validates before action</text>
+            <text x="120" y="196" text-anchor="middle" fill="#7f1d1d" font-family="JetBrains Mono" font-size="8">ambiguous · incomplete data</text>
+            <!-- 80-95 -->
+            <rect x="285" y="120" width="210" height="80" rx="4" fill="#1a1500" stroke="#f59e0b" stroke-width="1.5"/>
+            <text x="390" y="146" text-anchor="middle" fill="#fcd34d" font-family="JetBrains Mono" font-size="10" font-weight="500">80% – 95%</text>
+            <text x="390" y="164" text-anchor="middle" fill="#856a00" font-family="JetBrains Mono" font-size="8">→ Additional Validation</text>
+            <text x="390" y="180" text-anchor="middle" fill="#856a00" font-family="JetBrains Mono" font-size="8">Reruns critical tools · 2nd model pass</text>
+            <text x="390" y="196" text-anchor="middle" fill="#78580a" font-family="JetBrains Mono" font-size="8">"Are you sure?" before committing</text>
+            <!-- Above 95 -->
+            <rect x="560" y="120" width="200" height="80" rx="4" fill="#0d1f14" stroke="#10b981" stroke-width="1.5"/>
+            <text x="660" y="146" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="10" font-weight="500">Above 95%</text>
+            <text x="660" y="164" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">→ Autonomous Execution</text>
+            <text x="660" y="180" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">Result returned · Full audit log</text>
+            <text x="660" y="196" text-anchor="middle" fill="#1a4a2a" font-family="JetBrains Mono" font-size="8">No inline human — governance is the log</text>
+            <!-- Arrows from score -->
+            <line x1="340" y1="60" x2="160" y2="119" stroke="#ef4444" stroke-width="1.5" marker-end="url(#cg1)"/>
+            <line x1="390" y1="60" x2="390" y2="119" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#cg2)"/>
+            <line x1="440" y1="60" x2="620" y2="119" stroke="#10b981" stroke-width="1.5" marker-end="url(#cg3)"/>
+            <!-- Governance layer -->
+            <rect x="60" y="250" width="660" height="70" rx="4" fill="#0d1117" stroke="#1e2530" stroke-width="1.5"/>
+            <text x="390" y="276" text-anchor="middle" fill="#c9a84c" font-family="JetBrains Mono" font-size="11" font-weight="500">Human-in-Governance Layer</text>
+            <text x="390" y="296" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">Risk &amp; compliance teams set thresholds  ·  Exceptions reviewed  ·  Audit log always available</text>
+            <text x="390" y="312" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">Confidence distribution tracked over time → leading indicator of system maturity</text>
+            <!-- Arrows to governance -->
+            <line x1="120" y1="200" x2="200" y2="249" stroke="#3a3835" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#cg3)"/>
+            <line x1="390" y1="200" x2="390" y2="249" stroke="#3a3835" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#cg3)"/>
+            <line x1="660" y1="200" x2="580" y2="249" stroke="#3a3835" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#cg3)"/>
+          </svg>
+          <div class="diagram-caption">Figure 9 — Confidence-gated execution. Three pathways by confidence score. Human governance sits across all three — upstream, not inline.</div>
+        </div>
+
+        <p><strong>Below 80% confidence</strong> — the result routes to a human review queue. An advisor looks at it, validates it, and decides whether and how to act. This happens when the query was ambiguous, data was incomplete, or the regulatory constraints were complex enough that the model flagged genuine uncertainty.</p>
+
+        <p><strong>Between 80 and 95%</strong> — the system proceeds, but not autonomously. It reruns the most critical tool calls, cross-checks against boundary conditions, and in some cases runs a second model pass with a stricter prompt to challenge its own answer. Think of it as the system asking itself: <em>are you sure?</em></p>
+
+        <p><strong>Above 95%</strong> — the system acts autonomously. The calculation completes, the result is returned, and the interaction is logged for audit. No human inline — but everything is reviewable after the fact. That's where governance actually lives.</p>
+
+        <h3>Why the Threshold Is a Governance Decision</h3>
+        <p>The 80 and 95 percent thresholds aren't technical defaults. They were set by our risk and compliance teams, documented, and reviewed. In financial services, you can't say "the AI decided." You need to demonstrate that human judgment was applied at the right points — and that the rules defining those points were themselves deliberate. Confidence-gated execution is how you operationalise that.</p>
+
+        <p>Every result that falls into the 80–95% band is also a signal. Over time, those cases reveal where prompts are vague, where schemas have gaps, and where data is incomplete. Track the confidence distribution and watch it shift upward. The score becomes a leading indicator of system maturity — not just a safety gate.</p>
+
+<pre><code><span class="cm"># Confidence-gated execution router</span>
+<span class="kw">def</span> <span class="fn">route_by_confidence</span>(result: dict, score: float) -> dict:
+    <span class="kw">if</span> score < <span class="num">0.80</span>:
+        <span class="kw">return</span> human_review_queue.enqueue(result, reason=<span class="str">"low_confidence"</span>)
+    <span class="kw">elif</span> score < <span class="num">0.95</span>:
+        validated = rerun_critical_tools(result)
+        second_pass = model.verify(validated, prompt=STRICT_VERIFICATION_PROMPT)
+        <span class="kw">return</span> second_pass <span class="kw">if</span> second_pass.confidence >= <span class="num">0.95</span> \
+               <span class="kw">else</span> human_review_queue.enqueue(second_pass, reason=<span class="str">"validation_failed"</span>)
+    <span class="kw">else</span>:
+        audit_log.record(result, score=score, pathway=<span class="str">"autonomous"</span>)
+        <span class="kw">return</span> result  <span class="cm"># governance is in the log, not the approval</span></code></pre>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ── 10. CONCLUSION ── -->
       <section id="conclusion">
-        <h2><span class="num">// 09</span>What I'd Tell My Past Self</h2>
+        <h2><span class="num">// 10</span>What I'd Tell My Past Self</h2>
 
         <p>If I could go back to the start of this project with everything I know now, it would be this:</p>
 
@@ -784,12 +882,13 @@ fields @timestamp, session_id, agent_name, token_count
 
         <p>The gap between those two groups is where most of the pain in this industry right now is living. And it's entirely closeable — not with better models, but with better engineering around the models you already have.</p>
 
-        <h3>The Five Things That Actually Matter</h3>
+        <h3>The Six Things That Actually Matter</h3>
         <p><strong>Schema quality determines tool reliability.</strong> More than the model version, more than the prompt length. Get the parameter names and descriptions right.</p>
         <p><strong>Determinism is a design choice, not a model property.</strong> Put your math in code. Let the model handle language.</p>
         <p><strong>Circuit breakers must live in code.</strong> The model cannot reliably stop itself. Your middleware must.</p>
         <p><strong>Observability is not optional in production.</strong> You cannot debug what you cannot trace. Every hop needs a log, every session needs a trace ID.</p>
         <p><strong>Migration is an API design problem.</strong> Wrapping existing logic correctly — names, descriptions, error contracts — is the real work. The AI part is the easy part.</p>
+        <p><strong>Governance is upstream, not inline.</strong> At production scale, humans cannot approve every decision. Design your confidence thresholds deliberately, log everything, and review the exceptions. That's the only oversight model that's sustainable in a regulated environment.</p>
 
         <div class="callout green">If any of these patterns resonate with problems you're solving, I'd love to hear how your team is approaching it. The engineering discipline around function calling is still being written — and the teams building it carefully right now are defining what reliable AI in production looks like.</div>
       </section>
