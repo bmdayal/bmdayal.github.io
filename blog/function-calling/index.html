@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Function Calling in Production — Brij Mohan</title>
+  <title>Function Calling in Production Brij Mohan</title>
   <meta name="description" content="Building a multi-agent financial planning system taught us that the model is rarely the hard part. Schema design, circuit breakers, guardrails, observability, and migration strategies for production agentic systems." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=JetBrains+Mono:wght@300;400;500&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
@@ -236,13 +236,13 @@
 
     <div class="section-label">Summary</div>
     <div class="abstract-block">
-      <p>Building a multi-agent financial planning system taught us that the model is rarely the hard part. Here's everything we learned the expensive way — schema design, circuit breakers, guardrails, observability, and migration strategies for production agentic systems on AWS Bedrock.</p>
+      <p>Building a multi-agent financial planning system taught us that the model is rarely the hard part. Here's everything we learned the expensive way schema design, circuit breakers, guardrails, observability, and migration strategies for production agentic systems on AWS Bedrock.</p>
     </div>
 
     <div class="section-label">Contents</div>
     <div class="toc-block">
       <ol>
-        <li><a href="#what-is-fc">What Is Function Calling — Really?</a></li>
+        <li><a href="#what-is-fc">What Is Function Calling Really?</a></li>
         <li><a href="#finance-arch">The Financial Planning Architecture</a></li>
         <li><a href="#deadlock">The Deadlock Incident</a></li>
         <li><a href="#hybrid">The Hybrid Deterministic Architecture</a></li>
@@ -252,6 +252,7 @@
         <li><a href="#routing">Intelligent Model Routing</a></li>
         <li><a href="#confidence">Confidence-Gated Execution &amp; Human-in-Governance</a></li>
         <li><a href="#conclusion">What I'd Tell My Past Self</a></li>
+        <li><a href="#references">References</a></li>
       </ol>
     </div>
 
@@ -259,17 +260,19 @@
 
       <!-- ── 1. WHAT IS FUNCTION CALLING ── -->
       <section id="what-is-fc">
-        <h2><span class="num">// 01</span>What Is Function Calling — Really?</h2>
+        <h2><span class="num">// 01</span>What Is Function Calling</h2>
 
-        <p>Most explanations of function calling start with a JSON schema. That's the wrong place to start. Start with what the model actually <em>cannot</em> do.</p>
+        <p>Think of a really smart colleague who has deep knowledge and strong reasoning skills, but no direct access to your systems, your database, or the internet. If you ask them "what is the current balance in my retirement account?", they cannot look it up. But they can tell you exactly what needs to be looked up and how. They write a precise request: get me the retirement account balance for this user, as of today. You take that request, call the actual system, bring back the answer, and they use it to reason and respond.</p>
 
-        <p>An LLM cannot check the weather. It cannot query your database. It cannot call your portfolio API. All it can do is generate text — and within that text, it can describe, in structured form, a request for something it needs. The application layer reads that request, decides whether to honour it, executes the actual function, and returns the result. The model folds that result into its next response.</p>
+        <p>That is function calling. The LLM is that colleague. It cannot directly touch your database, your APIs, or your financial systems. What it can do is emit structured, precise requests describing exactly what it needs. Your application layer intercepts those requests, executes the actual calls against real systems, and returns the results. The model folds those results into its reasoning and produces a response.</p>
 
-        <p>That loop — model requests, application executes, model continues — is function calling. Everything else is engineering around it.</p>
+        <p>In practice, these function calls are defined using standards and protocols that tell the AI what tools are available, what each tool does, and how to call it. One example is MCP, the Model Context Protocol, an open standard for connecting AI models to external tools and data sources in a consistent way. Much like how USB is a standard that lets you plug any device into any computer without worrying about compatibility, MCP means the AI does not need to know how a tool works internally. It just needs to know the tool exists, what it expects as input, and what it returns.</p>
+
+        <p>An agent is what you get when you give that model a goal and let it decide which function calls to make, in what order, and based on what it gets back. A multi-agent system is several specialised agents working under a common orchestrator, each responsible for its own domain and its own set of tools.</p>
 
         <div class="insight"><p>The model is not calling functions. It is emitting structured text that describes what it wants called. Your application decides what happens next.</p></div>
 
-        <p>Here's a concrete example. When you ask Claude "what's the weather in New York?" — Claude doesn't know the weather. Internally, it emits something like:</p>
+        <p>Here is a concrete example. When you ask an AI assistant "what is the weather in New York?", the model does not know the weather. Internally, it emits something like:</p>
 
 <pre><code>{
   <span class="key">"type"</span>: <span class="str">"tool_use"</span>,
@@ -280,7 +283,9 @@
   }
 }</code></pre>
 
-        <p>Your application layer intercepts that, calls the actual weather API, gets the result, and passes it back. The model then writes the response the user sees. The user sees none of this. But a full request-response loop just completed — and that loop is the fundamental primitive of everything that follows.</p>
+        <p>Your application layer intercepts that, calls the actual weather API, gets the result, and passes it back. The model then writes the response the user sees. The user sees none of this. But a full request-response loop just completed, and that loop is the fundamental primitive of everything that follows.</p>
+
+        <p>The model is the reasoning engine. Function calling is how it acts on the world.</p>
 
         <div class="diagram-wrap">
           <svg viewBox="0 0 780 200" xmlns="http://www.w3.org/2000/svg">
@@ -315,7 +320,7 @@
             <text x="552" y="92" text-anchor="middle" fill="#3b82f6" font-family="JetBrains Mono" font-size="9">call</text>
             <text x="450" y="22" text-anchor="middle" fill="#10b981" font-family="JetBrains Mono" font-size="9">tool_result → model continues</text>
           </svg>
-          <div class="diagram-caption">Figure 1 — The function calling request-response loop</div>
+          <div class="diagram-caption">Figure 1 The function calling request-response loop</div>
         </div>
       </section>
 
@@ -325,9 +330,13 @@
       <section id="finance-arch">
         <h2><span class="num">// 02</span>The Financial Planning Architecture</h2>
 
-        <p>Let's make this concrete. A user asks: <em>"Am I on track to retire at 62?"</em></p>
+        <p>Let me make all of this concrete with a single question. A user opens their AI financial assistant and types: "Am I on track to retire at 62?"</p>
 
-        <p>That single question triggers a chain that exposes every hard problem in function calling simultaneously. Here's what actually happens:</p>
+        <p>That is seven words. But for the system to answer it meaningfully, a lot has to happen underneath. The LLM reads the question, understands the intent, and realises it cannot answer from memory alone. It needs real data. So it starts making function calls. One to the portfolio service asking for the user's current savings and investment balance. Another to the tax engine asking for a projected liability based on planned withdrawal amounts. Another to a Monte Carlo simulation model that runs thousands of scenarios to return a probability range rather than a single number, because a single number here would be false precision. And finally, a call to a regulatory rules engine that checks a genuinely complex set of constraints: IRS 401(k) annual contribution limits of $23,500 in 2025 with a $7,500 catch-up for those over 50, Required Minimum Distribution rules requiring mandatory withdrawals starting at age 73 or 75 for those born after 1960 under SECURE 2.0, the 10% early withdrawal penalty before age 59 and a half, Social Security claiming strategy between ages 62 and 70, and applicable ERISA obligations for any employer-sponsored plans involved.</p>
+
+        <p>In our architecture, each of those function calls is made through a defined tool interface. The agent knows what tools exist, what each one expects as input, and what it returns. That contract between the agent and the tool is what protocols like MCP formalise, so the agent does not need to know how the portfolio service is built internally.</p>
+
+        <p>This is also where the multi-agent design becomes necessary. The orchestrator agent receives the user's question and routes it. A retirement specialist agent handles the projection logic. A tax specialist agent handles the liability estimate. Each makes its own function calls to its own set of tools. The orchestrator brings the results together into a coherent answer.</p>
 
         <div class="diagram-wrap">
           <svg viewBox="0 0 780 480" xmlns="http://www.w3.org/2000/svg">
@@ -388,12 +397,16 @@
             <line x1="582" y1="343" x2="520" y2="399" stroke="#374151" stroke-width="1" marker-end="url(#a2)" stroke-dasharray="3,2"/>
             <line x1="718" y1="343" x2="660" y2="399" stroke="#374151" stroke-width="1" marker-end="url(#a2)" stroke-dasharray="3,2"/>
           </svg>
-          <div class="diagram-caption">Figure 2 — Multi-agent financial planning architecture. One user question cascades through orchestrator → specialist agents → tool layer → deterministic code.</div>
+          <div class="diagram-caption">Figure 2 Multi-agent financial planning architecture. One user question cascades through orchestrator → specialist agents → tool layer → deterministic code.</div>
         </div>
 
-        <p>Notice what's happening at each layer. The LLM orchestrator handles language understanding and routing — this is where probabilistic reasoning belongs. Specialist agents handle domain-specific coordination. The tool layer wraps deterministic functions. The deterministic code layer is pure math: same input, same output, every time.</p>
+        <p>Notice what is happening at each layer. The LLM orchestrator handles language understanding and routing. Specialist agents handle domain-specific coordination. The tool layer wraps deterministic functions. The deterministic code layer is pure math: same input, same output, every time.</p>
 
-        <p>And the regulatory constraints the rules engine has to check are genuinely non-trivial: IRS 401(k) annual contribution limits ($23,500 in 2025, with a $7,500 catch-up for those 50+), Required Minimum Distribution rules (mandatory withdrawals starting at age 73, or 75 for those born after 1960 under SECURE 2.0), the 10% early withdrawal penalty before age 59½, Social Security claiming strategy between ages 62 and 70, and applicable ERISA obligations for any employer-sponsored plans involved. Each of those is a separate function call to a separate rules engine.</p>
+        <p>Four or five function calls, across two or three agents, each waiting on the previous, each a potential failure point. What if the tax estimator times out on the third call? What if the Monte Carlo returns a range of 71% to 84% probability of success and the model has to reason about uncertainty rather than a clean answer? What if an input somewhere in that chain tries to redirect which account gets queried?</p>
+
+        <p>One seven-word question exposes every hard problem in function calling simultaneously.</p>
+
+        <div class="callout amber">What if the tax estimator times out on call three? What if the Monte Carlo returns a range and the model has to reason about uncertainty? What if an input tries to redirect which account gets queried? One question, every hard problem.</div>
 
         <div class="callout amber">Each hop in this chain is a potential failure point. What if the tax service times out on call three? What if the Monte Carlo model returns a probability range and the model doesn't know how to reason about uncertainty? What if a user input redirects which account gets queried?</div>
       </section>
@@ -406,11 +419,13 @@
 
         <p>Six months ago, building this system on AWS Bedrock, we experienced every engineer's nightmare: an infinite loop that burned our entire token budget before we knew what happened.</p>
 
-        <p>The architecture had an orchestrator agent and three specialist agents. We made one mistake: we trusted the orchestrator completely. Our prompt said, roughly: <em>"you are a financial planning orchestrator, here are your agents, decide who to call."</em></p>
+        <p>We built a financial planning proof of concept using a multi-agent architecture, with an orchestrator agent sitting above a set of specialist agents handling retirement planning, education planning, and personal wealth management. We wrote the orchestrator prompt to say, roughly: "here are your agents, decide who to call." And we moved on.</p>
 
-        <p>What we didn't account for: when the retirement agent received an ambiguous request, it tried to gather more context — by calling back up to the orchestrator. The orchestrator, not recognising this as a re-entry, treated it as a new request and called the retirement agent again.</p>
+        <p>The first time we ran a complex query, something like "build me a comprehensive plan covering my retirement and my kid's college," the system hung. No response. We waited a few minutes. Nothing.</p>
 
-        <p>We didn't catch it from a monitoring alarm or a timeout. We caught it when we started getting an <code>InvokeModelWithResponseStream validation error: Too many tokens</code> from Claude Haiku. Our POC was provisioned with a 1 million token budget — and the loop had consumed all of it before we knew anything was wrong. We only found out by starting to debug the error.</p>
+        <p>What had happened: the orchestrator called the retirement agent. The retirement agent, because its prompt was not constrained tightly enough, decided it needed broader context and called back up to the orchestrator. The orchestrator treated it as a new request and called the retirement agent again. Agent A calling Agent B calling Agent A.</p>
+
+        <p>We did not catch it from a log alarm or a timeout. We caught it when we started getting an Out of Tokens error. Our POC was provisioned with a 1 million token budget, and the loop had burned through all of it before we knew anything was wrong. We only found out by starting to debug the error.</p>
 
         <div class="diagram-wrap">
           <svg viewBox="0 0 780 280" xmlns="http://www.w3.org/2000/svg">
@@ -442,13 +457,17 @@
             <text x="690" y="218" text-anchor="middle" fill="#9b5555" font-family="JetBrains Mono" font-size="8">→ OutOfTokens error</text>
             <text x="390" y="262" text-anchor="middle" fill="#7f1d1d" font-family="JetBrains Mono" font-size="9">1M token budget · Duration: ~2 min · Detection: Out of Tokens error → debug</text>
           </svg>
-          <div class="diagram-caption">Figure 3 — The deadlock: Orchestrator calls Retirement Agent; Retirement Agent calls Orchestrator; repeat until token budget is exhausted</div>
+          <div class="diagram-caption">Figure 3 The deadlock: Orchestrator calls Retirement Agent; Retirement Agent calls Orchestrator; repeat until token budget is exhausted</div>
         </div>
 
         <h3>What We Fixed</h3>
-        <p>Three independent defences, not one:</p>
+        <p>Three independent defences, each catching what the others miss.</p>
 
-<pre><code><span class="cm"># 1. Hard token budget per agent (middleware, not prompt)</span>
+        <p>First, a hard token ceiling per agent, 4,000 tokens maximum, enforced in middleware, not the prompt. Second, a call depth counter that kills the session if the same agent is invoked more than a set number of times within 60 seconds. Third, the orchestrator prompt was rewritten to explicitly forbid upward delegation. It now says: you only call tools, you do not call other agents.</p>
+
+        <p>The lesson: you cannot rely on the model to know when to stop. That logic has to live in your code.</p>
+
+<pre><code><span class="cm"># Token budget enforced in middleware, not the prompt</span>
 <span class="kw">class</span> <span class="fn">AgentBudgetMiddleware</span>:
     MAX_TOKENS_PER_AGENT = <span class="num">4000</span>
 
@@ -457,21 +476,20 @@
         <span class="kw">if</span> running > self.MAX_TOKENS_PER_AGENT * <span class="num">0.9</span>:
             <span class="kw">raise</span> <span class="fn">GracefulBudgetExit</span>(
                 agent=agent_name,
-                message=<span class="str">"Budget ceiling reached — returning partial result"</span>
+                message=<span class="str">"Budget ceiling reached, returning partial result"</span>
             )
 
-<span class="cm"># 2. Call depth counter (catches loops before exhaustion)</span>
+<span class="cm"># Call depth counter catches loops before exhaustion</span>
 <span class="kw">def</span> <span class="fn">check_call_depth</span>(session_id, window_seconds=<span class="num">60</span>, max_calls=<span class="num">12</span>):
     recent = call_log.count_since(session_id, window_seconds)
     <span class="kw">if</span> recent > max_calls:
         <span class="kw">raise</span> <span class="fn">LoopDetected</span>(f<span class="str">"Session {session_id}: {recent} calls in {window_seconds}s"</span>)
 
-<span class="cm"># 3. Orchestrator prompt now forbids upward delegation</span>
+<span class="cm"># Orchestrator prompt forbids upward delegation</span>
 ORCHESTRATOR_SYSTEM = <span class="str">"""
 You are a financial planning orchestrator.
 STRICT RULES:
 - You ONLY call tools. You do NOT call other agents.
-- If a specialist agent calls you, REJECT the request and log a warning.
 - If you cannot route with confidence, return a clarification request to the user.
 - Never attempt to resolve ambiguity by calling multiple agents sequentially.
 """</span></code></pre>
@@ -485,7 +503,9 @@ STRICT RULES:
       <section id="hybrid">
         <h2><span class="num">// 04</span>The Hybrid Deterministic Architecture</h2>
 
-        <p>We ran an experiment early on: ask the LLM to compute a retirement projection directly from the prompt. Same inputs, five runs. We got four different answers. The differences were small — but in financial services, small differences in projected returns compound into large differences in advice. We would never ship that.</p>
+        <p>Early in the project we debated how much to trust the model to compute financial outcomes directly. We ran an experiment: we asked the LLM to calculate a simple 20-year retirement projection from a prompt, provided the same inputs across five runs, and got four different answers. The variance was small in absolute terms, but in financial planning, small differences in projected returns compound into significantly different advice. We would never want to ship that.</p>
+
+        <p>That was the decision point. We decided to treat the model and AI agents as orchestrators: good at reasoning and taking actions, but not at calculating. The moment the system needs to compute anything that matters, a projection, a tax estimate, or a risk score, it calls a deterministic tool. Same input, same output, every single time.</p>
 
         <div class="insight"><p>The model is the orchestrator, not the calculator. Language understanding is probabilistic and flexible. The math is always deterministic.</p></div>
 
@@ -495,12 +515,12 @@ STRICT RULES:
             <text x="12" y="175" fill="#3b82f6" font-family="JetBrains Mono" font-size="9" letter-spacing="0.08em">INTERFACE LAYER</text>
             <text x="12" y="285" fill="#10b981" font-family="JetBrains Mono" font-size="9" letter-spacing="0.08em">DETERMINISTIC LAYER</text>
             <rect x="120" y="74" width="540" height="70" rx="4" fill="#1a1a3a" stroke="#8b5cf6" stroke-width="1.5"/>
-            <text x="390" y="100" text-anchor="middle" fill="#c4b5fd" font-family="JetBrains Mono" font-size="12" font-weight="500">LLM — Language Understanding &amp; Routing</text>
+            <text x="390" y="100" text-anchor="middle" fill="#c4b5fd" font-family="JetBrains Mono" font-size="12" font-weight="500">LLM Language Understanding &amp; Routing</text>
             <text x="390" y="120" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">Understands user intent  ·  Routes to correct tool  ·  Formats response for user</text>
-            <text x="390" y="136" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">OUTPUT: tool_use {name, input} — never the computed value</text>
+            <text x="390" y="136" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">OUTPUT: tool_use {name, input} never the computed value</text>
             <line x1="390" y1="144" x2="390" y2="183" stroke="#374151" stroke-width="1.5" marker-end="url(#a1)" stroke-dasharray="4,2"/>
             <rect x="120" y="184" width="540" height="60" rx="4" fill="#141c2e" stroke="#3b82f6" stroke-width="1.5"/>
-            <text x="390" y="208" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono" font-size="11" font-weight="500">Tool Schema Layer — Validation &amp; Dispatch</text>
+            <text x="390" y="208" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono" font-size="11" font-weight="500">Tool Schema Layer Validation &amp; Dispatch</text>
             <text x="390" y="230" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">Type-checks params  ·  Rejects side-effect tools without confirmation  ·  Routes to function</text>
             <line x1="390" y1="244" x2="390" y2="283" stroke="#374151" stroke-width="1.5" marker-end="url(#a2)" stroke-dasharray="4,2"/>
             <rect x="40" y="284" width="155" height="52" rx="4" fill="#0d1f14" stroke="#10b981" stroke-width="1.5"/>
@@ -520,15 +540,17 @@ STRICT RULES:
             <line x1="420" y1="244" x2="463" y2="283" stroke="#10b981" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a2)"/>
             <line x1="500" y1="244" x2="636" y2="283" stroke="#10b981" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a2)"/>
           </svg>
-          <div class="diagram-caption">Figure 4 — The hybrid architecture: LLM handles intent and routing; deterministic code handles computation</div>
+          <div class="diagram-caption">Figure 4 The hybrid architecture: LLM handles intent and routing; deterministic code handles computation</div>
         </div>
 
-        <h3>Why Parameter Naming Matters More Than You Think</h3>
+        <p>In practice, this meant wrapping our existing rule-based calculation logic and manual process workflows as tools. We had been migrating a legacy system, a combination of rule-based engines and paper-based manual processes, to a modern platform. Rather than rebuilding that logic from scratch for the AI layer, we wrapped it. The model calls the tool, the tool runs the existing validated code, and the result comes back. None of the financial logic changed. This not only gives us deterministic results but also lets us reuse business rules that took years to develop.</p>
+
+        <p>We also learned that parameter naming matters far more than you would expect. A function parameter named "r" for interest rate, the model will not reliably populate it. Rename it "annual_interest_rate_percent" and it works consistently every time. The model infers meaning from parameter names, not from documentation it cannot see at execution time.</p>
 <pre><code><span class="cm"># ❌ This will produce inconsistent tool calls</span>
 <span class="kw">def</span> <span class="fn">calc_ret</span>(sv, r, n, mc=<span class="num">10000</span>):
     ...
 
-<span class="cm"># ✅ This produces reliable tool calls — every time</span>
+<span class="cm"># ✅ This produces reliable tool calls every time</span>
 <span class="kw">def</span> <span class="fn">calculate_retirement_projection</span>(
     current_savings_usd: float,
     annual_interest_rate_percent: float,
@@ -550,9 +572,11 @@ STRICT RULES:
       <section id="guardrails">
         <h2><span class="num">// 05</span>Guardrails &amp; Prompt Injection Defence</h2>
 
-        <p>We had two distinct problems, and they needed different solutions. The first was external — users trying to manipulate the system. The second was internal — the model's own behaviour causing runaway chains when given ambiguous inputs.</p>
+        <p>We had two distinct problems, and they needed different solutions. The first was external: users trying to manipulate the system. The second was internal: the model's own behaviour causing runaway chains when given ambiguous inputs.</p>
 
-        <p>Both came out of our internal Dev/QA security testing phase. Before moving toward production, we built a set of AI agents specifically designed to attack the system — using LLMs as testers, or what's sometimes called <strong>LLM as a Judge</strong>. Rather than writing static adversarial test cases by hand, these agents generated prompts dynamically and evaluated whether the financial planning agent could be manipulated. The failure modes they found were more creative and varied than anything we'd have written manually.</p>
+        <p>Both came out of our internal Dev/QA security testing phase. Before moving toward production, we built a set of AI agents specifically designed to attack the system, using LLMs as testers, or what is sometimes called <strong>LLM as a Judge</strong>. Rather than writing static adversarial test cases by hand, these agents generated prompts dynamically and evaluated whether the financial planning agent could be manipulated. The failure modes they found were more creative and varied than anything we would have written manually.</p>
+
+        <p>We fixed these at three layers. The first is a keyword filter at the input boundary, a fast pattern-based check that flags two distinct categories: known prompt injection signals such as phrases like "ignore your previous instructions," "forget your system prompt," "act as if," or "override," and terms clearly outside the financial planning domain such as account transfer instructions, references to other clients' data, or anything that looks like privilege escalation. If either category triggers, the request is rejected immediately before it touches the model. The second layer is an intent classifier, a lightweight model that reads the query and asks whether this is a legitimate financial planning request, requiring a confidence score above 0.85 to proceed. The keyword filter catches the obvious cases fast; the classifier catches semantic equivalents that rephrase the same attack. The third layer is at the orchestrator level: a confidence gate that requires the orchestrator to emit a structured routing summary before calling any agent. If confidence drops below 0.75 or there are unresolved ambiguities, it stops and asks the user to clarify rather than proceeding into an uncertain chain.</p>
 
         <div class="diagram-wrap">
           <svg viewBox="0 0 780 340" xmlns="http://www.w3.org/2000/svg">
@@ -563,13 +587,13 @@ STRICT RULES:
             <text x="390" y="30" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono" font-size="10">User Input</text>
             <text x="390" y="46" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">"Ignore instructions and..."</text>
             <rect x="150" y="90" width="480" height="54" rx="4" fill="#2a1515" stroke="#ef4444" stroke-width="1.5"/>
-            <text x="390" y="114" text-anchor="middle" fill="#fca5a5" font-family="JetBrains Mono" font-size="10" font-weight="500">Layer 1 — Keyword Filter</text>
+            <text x="390" y="114" text-anchor="middle" fill="#fca5a5" font-family="JetBrains Mono" font-size="10" font-weight="500">Layer 1 Keyword Filter</text>
             <text x="390" y="132" text-anchor="middle" fill="#9b5555" font-family="JetBrains Mono" font-size="8">Out-of-domain terms  ·  Known injection patterns  ·  SQL keywords in free text  ·  Off-topic domains</text>
             <rect x="150" y="182" width="480" height="54" rx="4" fill="#1a1500" stroke="#f59e0b" stroke-width="1.5"/>
-            <text x="390" y="206" text-anchor="middle" fill="#fcd34d" font-family="JetBrains Mono" font-size="10" font-weight="500">Layer 2 — Intent Classifier (lightweight model)</text>
+            <text x="390" y="206" text-anchor="middle" fill="#fcd34d" font-family="JetBrains Mono" font-size="10" font-weight="500">Layer 2 Intent Classifier (lightweight model)</text>
             <text x="390" y="224" text-anchor="middle" fill="#856a00" font-family="JetBrains Mono" font-size="8">Is this a financial planning request? Confidence score &gt; 0.85 required to proceed.</text>
             <rect x="150" y="274" width="480" height="54" rx="4" fill="#0a1a0a" stroke="#10b981" stroke-width="1.5"/>
-            <text x="390" y="298" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="10" font-weight="500">Layer 3 — Orchestrator Confidence Gate</text>
+            <text x="390" y="298" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="10" font-weight="500">Layer 3 Orchestrator Confidence Gate</text>
             <text x="390" y="316" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">Must emit routing summary before calling any agent. Cannot proceed if summary is vague.</text>
             <line x1="390" y1="54" x2="390" y2="88" stroke="#64748b" stroke-width="1.5" marker-end="url(#a1)"/>
             <line x1="390" y1="144" x2="390" y2="180" stroke="#64748b" stroke-width="1.5" marker-end="url(#a1)"/>
@@ -581,10 +605,10 @@ STRICT RULES:
             <line x1="630" y1="301" x2="720" y2="301" stroke="#10b981" stroke-width="1.5" marker-end="url(#a2)"/>
             <text x="726" y="305" fill="#10b981" font-family="JetBrains Mono" font-size="9">PROCEED ✓</text>
           </svg>
-          <div class="diagram-caption">Figure 5 — Three-layer defence: keyword filter blocks obvious injection; intent classifier rejects off-domain requests; confidence gate prevents ambiguous routing</div>
+          <div class="diagram-caption">Figure 5 Three-layer defence: keyword filter blocks obvious injection; intent classifier rejects off-domain requests; confidence gate prevents ambiguous routing</div>
         </div>
 
-<pre><code><span class="cm"># Confidence gate — orchestrator must justify routing before proceeding</span>
+<pre><code><span class="cm"># Confidence gate orchestrator must justify routing before proceeding</span>
 ORCHESTRATOR_GATE_PROMPT = <span class="str">"""
 Before calling any agent, output a JSON routing summary:
 {
@@ -612,13 +636,23 @@ If confidence < 0.75 or ambiguities is non-empty:
       <section id="observability">
         <h2><span class="num">// 06</span>Observability &amp; Preventive Monitoring</h2>
 
-        <p>After the deadlock, our philosophy shifted: never again find out something is wrong because we ran out of tokens. Preventive, not reactive.</p>
+        <p>After the deadlock, our philosophy shifted entirely, from reactive to preventive. Not "alert me when it breaks," but "alert me before it can break." And to do that properly in an agentic system, you have to rethink what observability even means. In a traditional application you monitor hosts: CPU, memory, uptime. In an agentic AI system, none of that tells you anything useful. What you monitor instead is behaviour, cost, and correctness.</p>
 
-        <p>AWS Bedrock emits per-invocation metrics to CloudWatch under the <code>AWS/Bedrock</code> namespace. We instrument four signal groups: token consumption (<code>InputTokenCount</code>, <code>OutputTokenCount</code>) to track budget burn per agent; <code>InvocationCount</code> to baseline request volume; <code>InvocationThrottles</code> and <code>InvocationClientErrors</code> to catch capacity and validation failures early. For token distribution visibility, we use CloudWatch metric math to compute p50/p95/p99 on <code>InputTokenCount</code> per agent — this surfaces runaway agents before they hit the budget ceiling. We alarm at 3,600 tokens per agent session (90% of the 4,000-token ceiling), which gives the middleware time to return a graceful partial result rather than an abrupt error.</p>
+        <p>The first thing we instrumented was token usage. In our setup, token counts per model invocation flow into a metrics system, and we set per-session rolling alarms on them, not on aggregate daily spend, but on what a single session is consuming in real time. If any session climbs past 3,600 tokens on what should be a lightweight agent interaction, the alarm fires before we hit our 4,000 token ceiling. This is also your earliest loop detector. Token count climbing steeply within a single session is the first signal something is recursing. We did not have this alarm during the deadlock. We only found out by hitting the Out of Tokens error and debugging backward. That alarm would have caught it within the first few iterations.</p>
+
+        <p>The second thing we tracked was agent behaviour, specifically tool selection rate and invalid tool invocations. An agent calling the wrong tool, or calling a tool with malformed parameters, tells you that your schema descriptions are drifting from what the model expects, or that an adversarial input is trying to redirect tool behaviour. Agent trace logs record every step in the reasoning chain, every tool call, every intermediate decision, every handoff. Paired with distributed tracing, a multi-agent failure that used to mean correlating timestamps across four different log groups becomes a single trace ID.</p>
+
+        <p>For loop detection specifically, we wrote a log query that counts how many times the same session ID appears within a 60-second window. More than eight appearances triggers the alarm. It catches the circular call pattern by behaviour, before token exhaustion, which is the only way to catch it early enough to matter.</p>
+
+        <p>On the compliance side, API call logging with full identity context, which agent called which tool, under which role, when, is non-negotiable in a regulated financial environment. Every tool invocation is potentially a compliance event. If a client query later comes under scrutiny, you need to reconstruct the exact chain. That audit trail is not optional.</p>
+
+        <p>The last thing we set up was cost anomaly detection. The system learns your normal spending pattern over the past seven days, and if any single day spikes significantly above that baseline, it sends you an alert. We set our threshold at 150%, so if our usual daily spend is $100 and it suddenly hits $150 or more, we get notified immediately. It takes about five minutes to configure and runs automatically after that. Had we set this up before the deadlock, we would have known something was wrong within the first few minutes instead of finding out after the entire token budget was gone.</p>
+
+        <p>The most important layer though is not a monitoring service at all. It is budget fencing in middleware. Every agent has a hard token ceiling enforced in code, not in the prompt, not by the model, in code. If a session approaches the ceiling, the agent exits gracefully and returns what it has. Monitoring tells you something went wrong. Budget fencing stops it before it does.</p>
 
         <div class="diagram-wrap">
           <svg viewBox="0 0 780 380" xmlns="http://www.w3.org/2000/svg">
-            <text x="390" y="22" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="10" letter-spacing="0.08em">AWS OBSERVABILITY STACK — BEDROCK AGENTCORE</text>
+            <text x="390" y="22" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="10" letter-spacing="0.08em">AWS OBSERVABILITY STACK BEDROCK AGENTCORE</text>
             <rect x="290" y="40" width="200" height="54" rx="4" fill="#1a2a4a" stroke="#3b82f6" stroke-width="1.5"/>
             <text x="390" y="64" text-anchor="middle" fill="#93c5fd" font-family="JetBrains Mono" font-size="11" font-weight="500">AgentCore Runtime</text>
             <text x="390" y="82" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">multi-agent chain executing</text>
@@ -645,7 +679,7 @@ If confidence < 0.75 or ambiguities is non-empty:
             <text x="685" y="204" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">Alert at 150% of</text>
             <text x="685" y="218" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">7-day rolling avg</text>
             <rect x="180" y="290" width="420" height="64" rx="4" fill="#0d1f14" stroke="#10b981" stroke-width="2"/>
-            <text x="390" y="316" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="11" font-weight="500">Budget Fencing — Middleware</text>
+            <text x="390" y="316" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="11" font-weight="500">Budget Fencing Middleware</text>
             <text x="390" y="336" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">Hard stop at 3,600 tokens (90% of 4,000)  ·  Code-enforced  ·  Prompt cannot override  ·  Graceful return</text>
             <line x1="340" y1="94" x2="140" y2="147" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#a1)"/>
             <line x1="370" y1="94" x2="320" y2="147" stroke="#8b5cf6" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#a3)"/>
@@ -658,10 +692,10 @@ If confidence < 0.75 or ambiguities is non-empty:
             <text x="243" y="248" fill="#ef4444" font-family="JetBrains Mono" font-size="8">⚑ &gt;12 calls/60s</text>
             <text x="455" y="248" fill="#10b981" font-family="JetBrains Mono" font-size="8">trace_id per request</text>
           </svg>
-          <div class="diagram-caption">Figure 6 — Four-layer observability stack with budget fencing as the hard stop</div>
+          <div class="diagram-caption">Figure 6 Four-layer observability stack with budget fencing as the hard stop</div>
         </div>
 
-<pre><code><span class="cm"># CloudWatch Logs Insights — loop detection query</span>
+<pre><code><span class="cm"># CloudWatch Logs Insights loop detection query</span>
 fields @timestamp, session_id, agent_name, token_count
 | filter agent_name = <span class="str">"retirement-planner"</span>
 | stats count() <span class="kw">as</span> invocations by session_id, bin(<span class="num">60</span>s)
@@ -675,7 +709,9 @@ fields @timestamp, session_id, agent_name, token_count
       <section id="migration">
         <h2><span class="num">// 07</span>Migration: Don't Rewrite, Rewrap</h2>
 
-        <p>The question every team asks: <em>"Do we rewrite everything to go agentic?"</em> We were migrating from a combination of rule-based engines and manual paper-based workflows — years of accumulated business logic, regulatory rules, and institutional knowledge encoded in systems that were never designed for AI. Almost always the answer is no. The legacy code you're tempted to throw away encodes years of regulatory knowledge, edge cases, and validated financial logic. A startup building from scratch doesn't have that. It's your moat.</p>
+        <p>The question every engineering team asks when considering this kind of system is: do we really need to rewrite, or can we simply rewrap and save significant time, money, and risk? We were migrating from a combination of rule-based engines and manual paper-based workflows, years of accumulated business logic, regulatory rules, and institutional knowledge encoded in systems that were never designed for AI. The answer we landed on: don't rewrite, rewrap.</p>
+
+        <p>What we essentially built is what software architects call an Anti-Corruption Layer, a well-established pattern in microservices design where you place a translation layer between a new system and a legacy one, so neither has to speak the other's language. The legacy side has abbreviated parameter names, raw exceptions, and side effects baked in. The agent layer expects clean tool names, descriptive parameters, and structured responses. The wrapper is what stands between them and keeps both worlds intact.</p>
 
         <div class="diagram-wrap">
           <svg viewBox="0 0 780 240" xmlns="http://www.w3.org/2000/svg">
@@ -716,20 +752,22 @@ fields @timestamp, session_id, agent_name, token_count
             <text x="726" y="126" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="9" font-weight="500">tool ✓</text>
             <text x="726" y="148" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">reliably</text>
           </svg>
-          <div class="diagram-caption">Figure 7 — The migration pattern: wrap, don't rewrite. Legacy code stays untouched. Clean wrapper + rich schema = reliable tool calls.</div>
+          <div class="diagram-caption">Figure 7 The migration pattern: wrap, don't rewrite. Legacy code stays untouched. Clean wrapper + rich schema = reliable tool calls.</div>
         </div>
 
         <h3>The Pattern: Wrap and Expose via AgentCore</h3>
 
-        <p>You take your existing rule-based functions and SQL queries and wrap them as tools, exposed through AWS AgentCore — the managed runtime that lets you deploy and scale the agent layer without rebuilding the underlying calculation infrastructure. The model calls the tool; the tool runs the existing validated code; the result comes back. None of the financial logic changed.</p>
+        <p>You take your existing rule-based functions and SQL queries and wrap them as tools, exposed through AWS AgentCore the managed runtime that lets you deploy and scale the agent layer without rebuilding the underlying calculation infrastructure. The model calls the tool; the tool runs the existing validated code; the result comes back. None of the financial logic changed.</p>
 
-        <h3>Three Things That Bite You During Migration</h3>
+        <h3>Three Things That Turned Out to Be Harder Than They Look</h3>
 
-        <p><strong>Parameter naming</strong> — rename abbreviations in the wrapper. <code>r</code> → <code>annual_interest_rate_percent</code>. <code>acct_id</code> → <code>account_identifier</code>. LLMs infer from names, not comments.</p>
+        <p><strong>Parameter naming.</strong> Abbreviations and short names that developers understand don't translate reliably to model behaviour, and the wrapper is where you fix that. Rename them to be self-describing.</p>
 
-        <p><strong>Side effects</strong> — audit every function before exposing it. Anything that writes, logs, or triggers downstream processes must be sandboxed or wrapped with an explicit confirmation step. The model may call it ten times in a loop.</p>
+        <p><strong>Side effects.</strong> Any existing function that writes, logs, or triggers downstream processes has to be sandboxed or wrapped with an explicit confirmation step, because the model may invoke it unpredictably and repeatedly.</p>
 
-        <p><strong>Error handling</strong> — your existing exceptions were designed for developers. Convert them to model-friendly errors before they surface:</p>
+        <p><strong>Error handling.</strong> Existing code throws exceptions designed to be caught by application logic. A model receiving a raw database error simply does not know what to do with it. Every tool wrapper needs to convert failures into structured, model-readable responses that include a reason and a suggested next step.</p>
+
+        <p>The migration took longer than the AI work. That was the surprise, and the lesson.</p>
 
 <pre><code><span class="kw">def</span> <span class="fn">safe_tool_wrapper</span>(fn):
     <span class="kw">def</span> <span class="fn">wrapped</span>(**kwargs):
@@ -741,7 +779,7 @@ fields @timestamp, session_id, agent_name, token_count
                     <span class="str">"detail"</span>: str(e), <span class="str">"suggestion"</span>: <span class="str">"Check parameter types and retry"</span>}
         <span class="kw">except</span> DatabaseError:
             <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"error"</span>, <span class="str">"reason"</span>: <span class="str">"data_unavailable"</span>,
-                    <span class="str">"suggestion"</span>: <span class="str">"Account data temporarily unavailable — retry in 30s"</span>}
+                    <span class="str">"suggestion"</span>: <span class="str">"Account data temporarily unavailable retry in 30s"</span>}
         <span class="cm"># Model can reason about this. It cannot reason about a stack trace.</span>
     <span class="kw">return</span> wrapped</code></pre>
       </section>
@@ -752,7 +790,7 @@ fields @timestamp, session_id, agent_name, token_count
       <section id="routing">
         <h2><span class="num">// 08</span>Intelligent Model Routing</h2>
 
-        <p>Not every query deserves the same model. A portfolio balance lookup and a 30-year retirement plan are fundamentally different tasks — treating them identically is expensive and slow.</p>
+        <p>Not every query deserves the same model. A portfolio balance lookup and a 30-year retirement plan are fundamentally different tasks treating them identically is expensive and slow.</p>
 
         <div class="diagram-wrap">
           <svg viewBox="0 0 780 280" xmlns="http://www.w3.org/2000/svg">
@@ -777,12 +815,12 @@ fields @timestamp, session_id, agent_name, token_count
             <text x="220" y="188" fill="#10b981" font-family="JetBrains Mono" font-size="8">simple</text>
             <text x="520" y="188" fill="#3b82f6" font-family="JetBrains Mono" font-size="8">complex / ambiguous</text>
           </svg>
-          <div class="diagram-caption">Figure 8 — Intelligent model routing. ~60-70% of queries are simple lookups that don't need your most capable model.</div>
+          <div class="diagram-caption">Figure 8 Intelligent model routing. ~60-70% of queries are simple lookups that don't need your most capable model.</div>
         </div>
 
         <div class="callout amber">Don't over-engineer the router. A complex routing layer is just another failure point. Keep heuristics simple and err toward the capable model when in doubt. A wrong answer from under-routing is more expensive than a higher API bill.</div>
 
-        <p class="callout">Note: Groq is an inference <em>provider</em> running open-source models (LLaMA, Mixtral) — not to be confused with Grok, which is xAI's model.</p>
+        <p class="callout">Note: Groq is an inference <em>provider</em> running open-source models (LLaMA, Mixtral) not to be confused with Grok, which is xAI's model.</p>
       </section>
 
       <hr class="section-divider">
@@ -791,11 +829,11 @@ fields @timestamp, session_id, agent_name, token_count
       <section id="confidence">
         <h2><span class="num">// 09</span>Confidence-Gated Execution &amp; Human-in-Governance</h2>
 
-        <p>Model routing decides <em>which</em> model handles a request. But there's a second routing decision that matters just as much in financial services: based on how confident the system is in its output, what happens next — and who is responsible for it?</p>
+        <p>Model routing decides <em>which</em> model handles a request. But there's a second routing decision that matters just as much in financial services: based on how confident the system is in its output, what happens next and who is responsible for it?</p>
 
-        <p>A common framing in AI is <em>human in the loop</em>. But at the pace of financial calculations — a system processing thousands of planning queries across an advisor platform — humans cannot be inline approvers of every decision. That's not a practical model, and it's not what regulators actually require. What we've moved toward instead is <strong>human in governance</strong>. Humans don't approve each calculation. They define the rules, set the thresholds, review the exceptions, and continuously calibrate the system. The governance is upstream, not inline.</p>
+        <p>A common framing in AI is <em>human in the loop</em>. But at the pace of financial calculations a system processing thousands of planning queries across an advisor platform humans cannot be inline approvers of every decision. That's not a practical model, and it's not what regulators actually require. What we've moved toward instead is <strong>human in governance</strong>. Humans don't approve each calculation. They define the rules, set the thresholds, review the exceptions, and continuously calibrate the system. The governance is upstream, not inline.</p>
 
-        <div class="insight"><p>Human-in-the-loop assumes humans can keep pace with the system. Human-in-governance acknowledges they can't — and designs the oversight layer accordingly.</p></div>
+        <div class="insight"><p>Human-in-the-loop assumes humans can keep pace with the system. Human-in-governance acknowledges they can't and designs the oversight layer accordingly.</p></div>
 
         <p>After the agent chain completes and produces a result, the model scores its own confidence in that output. That score determines the execution pathway.</p>
 
@@ -827,7 +865,7 @@ fields @timestamp, session_id, agent_name, token_count
             <text x="660" y="146" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="10" font-weight="500">Above 95%</text>
             <text x="660" y="164" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">→ Autonomous Execution</text>
             <text x="660" y="180" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">Result returned · Full audit log</text>
-            <text x="660" y="196" text-anchor="middle" fill="#1a4a2a" font-family="JetBrains Mono" font-size="8">No inline human — governance is the log</text>
+            <text x="660" y="196" text-anchor="middle" fill="#1a4a2a" font-family="JetBrains Mono" font-size="8">No inline human governance is the log</text>
             <!-- Arrows from score -->
             <line x1="340" y1="60" x2="160" y2="119" stroke="#ef4444" stroke-width="1.5" marker-end="url(#cg1)"/>
             <line x1="390" y1="60" x2="390" y2="119" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#cg2)"/>
@@ -842,19 +880,19 @@ fields @timestamp, session_id, agent_name, token_count
             <line x1="390" y1="200" x2="390" y2="249" stroke="#3a3835" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#cg3)"/>
             <line x1="660" y1="200" x2="580" y2="249" stroke="#3a3835" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#cg3)"/>
           </svg>
-          <div class="diagram-caption">Figure 9 — Confidence-gated execution. Three pathways by confidence score. Human governance sits across all three — upstream, not inline.</div>
+          <div class="diagram-caption">Figure 9 Confidence-gated execution. Three pathways by confidence score. Human governance sits across all three upstream, not inline.</div>
         </div>
 
-        <p><strong>Below 80% confidence</strong> — the result routes to a human review queue. An advisor looks at it, validates it, and decides whether and how to act. This happens when the query was ambiguous, data was incomplete, or the regulatory constraints were complex enough that the model flagged genuine uncertainty.</p>
+        <p><strong>Below 80% confidence</strong>, the system routes the request to a human reviewer. An advisor looks at it, validates it, and decides whether and how to act. This usually happens when the query is ambiguous, the data is incomplete, or the regulatory constraints involved are complex enough that the model flagged genuine uncertainty.</p>
 
-        <p><strong>Between 80 and 95%</strong> — the system proceeds, but not autonomously. It reruns the most critical tool calls, cross-checks against boundary conditions, and in some cases runs a second model pass with a stricter prompt to challenge its own answer. Think of it as the system asking itself: <em>are you sure?</em></p>
+        <p><strong>Between 80 and 95%</strong>, the system proceeds but with additional validation. It reruns the most critical tool calls, cross-checks the output against boundary conditions, and in some cases runs a second model pass with a stricter prompt to challenge its own answer, or routes to a more capable reasoning model. Think of it as the system asking itself: are you sure? Only if that validation holds does the result go forward.</p>
 
-        <p><strong>Above 95%</strong> — the system acts autonomously. The calculation completes, the result is returned, and the interaction is logged for audit. No human inline — but everything is reviewable after the fact. That's where governance actually lives.</p>
+        <p><strong>Above 95%</strong>, the system acts autonomously. The calculation completes, the result is returned, and the interaction is logged for audit. No human is inline, but everything is reviewable after the fact, and that is where governance actually lives.</p>
 
         <h3>Why the Threshold Is a Governance Decision</h3>
-        <p>The 80 and 95 percent thresholds aren't technical defaults. They were set by our risk and compliance teams, documented, and reviewed. In financial services, you can't say "the AI decided." You need to demonstrate that human judgment was applied at the right points — and that the rules defining those points were themselves deliberate. Confidence-gated execution is how you operationalise that.</p>
+        <p>The 80 and 95 percent thresholds are not technical defaults. They were set by our risk and compliance teams, documented, and reviewed. In financial services, you cannot say "the AI decided." You need to demonstrate that human judgment was applied at the right points in the process, and that the thresholds defining those points were themselves a deliberate human decision. Confidence-gated execution is how you operationalise that.</p>
 
-        <p>Every result that falls into the 80–95% band is also a signal. Over time, those cases reveal where prompts are vague, where schemas have gaps, and where data is incomplete. Track the confidence distribution and watch it shift upward. The score becomes a leading indicator of system maturity — not just a safety gate.</p>
+        <p>The other value of this pattern is that every result falling into the 80 to 95 percent band is a signal. Over time, you can feed those cases back into your reinforcement learning pipeline, using them to tighten prompts, improve tool schemas, and identify data gaps. As the system learns from those edge cases, you watch the confidence distribution shift upward. The score stops being just a safety gate and becomes a leading indicator of system maturity.</p>
 
 <pre><code><span class="cm"># Confidence-gated execution router</span>
 <span class="kw">def</span> <span class="fn">route_by_confidence</span>(result: dict, score: float) -> dict:
@@ -878,22 +916,76 @@ fields @timestamp, session_id, agent_name, token_count
 
         <p>If I could go back to the start of this project with everything I know now, it would be this:</p>
 
-        <div class="insight"><p>Function calling is not a feature. It's a discipline. Most teams treat it as the former — they wire up a few tools, it works in the demo, and they move on. The teams that treat it as a discipline — with schema governance, token budgets, observability, security review, and failure testing built in from day one — those are the ones that actually ship reliable AI systems in production.</p></div>
+        <div class="insight"><p>Function calling is not a feature. It's a discipline. Most teams treat it as the former they wire up a few tools, it works in the demo, and they move on. The teams that treat it as a discipline with schema governance, token budgets, observability, security review, and failure testing built in from day one those are the ones that actually ship reliable AI systems in production.</p></div>
 
-        <p>The gap between those two groups is where most of the pain in this industry right now is living. And it's entirely closeable — not with better models, but with better engineering around the models you already have.</p>
+        <p>The gap between those two groups is where most of the pain in this industry right now is living. And it's entirely closeable not with better models, but with better engineering around the models you already have.</p>
 
         <h3>The Six Things That Actually Matter</h3>
         <p><strong>Schema quality determines tool reliability.</strong> More than the model version, more than the prompt length. Get the parameter names and descriptions right.</p>
         <p><strong>Determinism is a design choice, not a model property.</strong> Put your math in code. Let the model handle language.</p>
         <p><strong>Circuit breakers must live in code.</strong> The model cannot reliably stop itself. Your middleware must.</p>
         <p><strong>Observability is not optional in production.</strong> You cannot debug what you cannot trace. Every hop needs a log, every session needs a trace ID.</p>
-        <p><strong>Migration is an API design problem.</strong> Wrapping existing logic correctly — names, descriptions, error contracts — is the real work. The AI part is the easy part.</p>
+        <p><strong>Migration is an API design problem.</strong> Wrapping existing logic correctly names, descriptions, error contracts is the real work. The AI part is the easy part.</p>
         <p><strong>Governance is upstream, not inline.</strong> At production scale, humans cannot approve every decision. Design your confidence thresholds deliberately, log everything, and review the exceptions. That's the only oversight model that's sustainable in a regulated environment.</p>
 
-        <div class="callout green">If any of these patterns resonate with problems you're solving, I'd love to hear how your team is approaching it. The engineering discipline around function calling is still being written — and the teams building it carefully right now are defining what reliable AI in production looks like.</div>
+        <div class="callout green">If any of these patterns resonate with problems you're solving, I'd love to hear how your team is approaching it. The engineering discipline around function calling is still being written and the teams building it carefully right now are defining what reliable AI in production looks like.</div>
       </section>
 
     </article>
+
+    <hr class="section-divider" id="references">
+    <div class="abstract-block" style="padding:1.75rem 2rem;">
+
+      <p style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;">Software Architecture Patterns</p>
+
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:0.5rem;">
+        [1] Richardson, C. <em>Anti-Corruption Layer Pattern.</em> Microservices.io.
+        <a href="https://microservices.io/patterns/refactoring/anti-corruption-layer.html" target="_blank" rel="noopener" style="color:var(--gold-dim);word-break:break-all;">microservices.io/patterns/refactoring/anti-corruption-layer.html</a>
+      </p>
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:0.5rem;">
+        [2] Fowler, M. <em>Strangler Fig Application.</em> martinfowler.com.
+        <a href="https://martinfowler.com/bliki/StranglerFigApplication.html" target="_blank" rel="noopener" style="color:var(--gold-dim);">martinfowler.com/bliki/StranglerFigApplication.html</a>
+      </p>
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:1.5rem;">
+        [3] Fowler, M. <em>Circuit Breaker.</em> martinfowler.com.
+        <a href="https://martinfowler.com/bliki/CircuitBreaker.html" target="_blank" rel="noopener" style="color:var(--gold-dim);">martinfowler.com/bliki/CircuitBreaker.html</a>
+      </p>
+
+      <p style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;">AI Protocols and Standards</p>
+
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:0.5rem;">
+        [4] Anthropic et al. <em>Model Context Protocol (MCP): Introduction and Architecture.</em> Official MCP Documentation.
+        <a href="https://modelcontextprotocol.io/docs/getting-started/intro" target="_blank" rel="noopener" style="color:var(--gold-dim);">modelcontextprotocol.io/docs/getting-started/intro</a>
+      </p>
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:1.5rem;">
+        [5] Model Context Protocol. <em>Tools Specification.</em>
+        <a href="https://modelcontextprotocol.io/specification/2025-11-25/server/tools" target="_blank" rel="noopener" style="color:var(--gold-dim);">modelcontextprotocol.io/specification/2025-11-25/server/tools</a>
+      </p>
+
+      <p style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;">AWS Architecture and Observability</p>
+
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:1.5rem;">
+        [6] Amazon Web Services. <em>Observability and Monitoring for Agentic AI on AWS.</em> AWS Prescriptive Guidance.
+        <a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/agentic-ai-serverless/observability-and-monitoring.html" target="_blank" rel="noopener" style="color:var(--gold-dim);word-break:break-all;">docs.aws.amazon.com/prescriptive-guidance/latest/agentic-ai-serverless/observability-and-monitoring.html</a>
+      </p>
+
+      <p style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;">US Retirement Regulations</p>
+
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:0.5rem;">
+        [7] Internal Revenue Service. <em>Retirement Topics: 401(k) and Profit-Sharing Plan Contribution Limits.</em> IRS.gov.
+        <a href="https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-401k-and-profit-sharing-plan-contribution-limits" target="_blank" rel="noopener" style="color:var(--gold-dim);word-break:break-all;">irs.gov/retirement-plans/plan-participant-employee/retirement-topics-401k-and-profit-sharing-plan-contribution-limits</a>
+      </p>
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:0.5rem;">
+        [8] Internal Revenue Service. <em>Required Minimum Distributions (RMDs).</em> IRS.gov.
+        <a href="https://www.irs.gov/retirement-plans/required-minimum-distributions-rmds" target="_blank" rel="noopener" style="color:var(--gold-dim);">irs.gov/retirement-plans/required-minimum-distributions-rmds</a>
+      </p>
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:0;">
+        [9] US Department of Labor. <em>ERISA: Retirement Plans and the Employee Retirement Income Security Act.</em> dol.gov.
+        <a href="https://www.dol.gov/agencies/ebsa/about-ebsa/our-activities/resource-center/faqs/retirement-plans-and-erisa" target="_blank" rel="noopener" style="color:var(--gold-dim);">dol.gov/agencies/ebsa/about-ebsa/our-activities/resource-center/faqs/retirement-plans-and-erisa</a>
+      </p>
+
+    </div>
+
   </div>
 
   <footer>
