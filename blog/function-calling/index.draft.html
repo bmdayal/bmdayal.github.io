@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Function Calling in Production Brij Mohan</title>
+  <meta name="description" content="Building a multi-agent financial planning system taught us that the model is rarely the hard part. Schema design, circuit breakers, guardrails, observability, and migration strategies for production agentic systems." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=JetBrains+Mono:wght@300;400;500&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #07090f; --bg2: #0d1117; --bg3: #131922;
+      --gold: #c9a84c; --gold-dim: #8a6e2f;
+      --text: #e8e6e0; --text-dim: #8a8880; --text-faint: #3a3835;
+      --border: #1e2530; --radius: 4px;
+      --amber: #f59e0b; --green: #10b981; --red: #ef4444; --blue: #3b82f6;
+      --code-bg: #0a0d14;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Lato', sans-serif; font-weight: 300; line-height: 1.7; font-size: 17px; }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.25rem 3rem;
+      background: rgba(7,9,15,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--gold); letter-spacing: 0.15em; text-decoration: none; }
+    .nav-back { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--text-dim); text-decoration: none; text-transform: uppercase; transition: color 0.2s; }
+    .nav-back:hover { color: var(--gold); }
+
+    /* ── Hero ── */
+    .paper-hero { padding: 5rem 3rem 3.5rem; border-bottom: 1px solid var(--border); max-width: 860px; }
+    .paper-eyebrow {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.2em;
+      color: var(--gold); text-transform: uppercase; margin-bottom: 1.25rem;
+      display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+    }
+    .eyebrow-badge { border: 1px solid var(--gold-dim); background: rgba(201,168,76,0.06); padding: 0.2rem 0.65rem; border-radius: 2px; }
+    .paper-title {
+      font-family: 'Playfair Display', serif; font-size: clamp(1.6rem, 3.5vw, 2.6rem);
+      font-weight: 900; line-height: 1.2; margin-bottom: 1.5rem; color: var(--text);
+    }
+    .paper-title em { font-style: italic; color: var(--gold); }
+    .paper-authors {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; letter-spacing: 0.05em;
+      color: var(--text-dim); margin-bottom: 1.5rem; line-height: 1.7;
+    }
+    .paper-authors strong { color: var(--gold); }
+    .paper-action-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .btn {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.1em;
+      text-transform: uppercase; text-decoration: none; padding: 0.65rem 1.4rem;
+      border-radius: var(--radius); transition: all 0.2s;
+    }
+    .btn-primary { background: var(--gold); color: var(--bg); font-weight: 500; }
+    .btn-primary:hover { background: #e0ba60; }
+    .btn-secondary { border: 1px solid var(--border); color: var(--text-dim); }
+    .btn-secondary:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+    /* ── Content ── */
+    .content { max-width: 860px; padding: 4rem 3rem; }
+
+    .section-label {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.2em;
+      color: var(--gold); text-transform: uppercase; margin-bottom: 1rem;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .abstract-block {
+      background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--gold-dim);
+      border-radius: var(--radius); padding: 2rem; margin-bottom: 3rem;
+    }
+    .abstract-block p { font-size: 0.975rem; color: var(--text-dim); line-height: 1.9; }
+
+    .meta-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem; margin-bottom: 3rem;
+    }
+    .meta-item { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+    .meta-key { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 0.35rem; }
+    .meta-val { font-size: 0.875rem; color: var(--text); line-height: 1.4; }
+
+    /* ── TOC ── */
+    .toc-block {
+      background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--gold-dim);
+      border-radius: var(--radius); padding: 1.75rem 2rem; margin-bottom: 3rem;
+    }
+    .toc-block ol { padding-left: 1.25rem; }
+    .toc-block li { margin: 0.35rem 0; }
+    .toc-block a { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-dim); text-decoration: none; transition: color 0.2s; }
+    .toc-block a:hover { color: var(--gold); }
+
+    /* ── Article typography ── */
+    article { padding: 2rem 0 0; }
+
+    h2 {
+      font-family: 'Playfair Display', serif; font-size: 1.85rem; font-weight: 700;
+      color: var(--text); margin: 3.5rem 0 1.25rem; line-height: 1.2;
+    }
+    h2 .num {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+      color: var(--gold); display: block; margin-bottom: 0.4rem; letter-spacing: 0.1em;
+    }
+    h3 {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 500;
+      color: var(--text-dim); margin: 2rem 0 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    p { margin-bottom: 1.25rem; color: var(--text-dim); font-size: 0.975rem; }
+    p strong { color: var(--text); font-weight: 700; }
+    p em { color: var(--text); }
+
+    /* ── Callouts ── */
+    .callout {
+      border-left: 3px solid var(--border); background: var(--bg2);
+      padding: 1.25rem 1.5rem; margin: 2rem 0; font-style: italic;
+      color: var(--text-dim); font-size: 0.975rem; border-radius: 0 var(--radius) var(--radius) 0;
+    }
+    .callout.amber { border-color: var(--amber); background: rgba(245,158,11,0.06); color: #fcd34d; font-style: normal; }
+    .callout.red   { border-color: var(--red);   background: rgba(239,68,68,0.06);   color: #fca5a5; font-style: normal; }
+    .callout.green { border-color: var(--green);  background: rgba(16,185,129,0.06);  color: #6ee7b7; font-style: normal; }
+
+    /* ── Insight ── */
+    .insight {
+      background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--gold-dim);
+      padding: 1.5rem 2rem 1.5rem 3rem; margin: 2.5rem 0; position: relative;
+    }
+    .insight::before {
+      content: '"'; font-family: 'Playfair Display', serif; font-size: 4.5rem;
+      color: var(--text-faint); position: absolute; top: -0.5rem; left: 0.75rem; line-height: 1;
+    }
+    .insight p { color: var(--text); font-size: 1rem; font-style: italic; margin: 0; }
+
+    /* ── Code ── */
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px;
+      padding: 1.5rem; overflow-x: auto; margin: 1.5rem 0;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.7;
+    }
+    code { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; color: var(--text-dim); }
+    pre code { color: var(--text); font-size: 1em; }
+    .kw  { color: #c084fc; }
+    .str { color: #86efac; }
+    .cm  { color: var(--text-faint); font-style: italic; }
+    .fn  { color: #7dd3fc; }
+    .num { color: #fdba74; }
+    .key { color: #f9a8d4; }
+
+    /* ── Diagrams ── */
+    .diagram-wrap {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
+      padding: 2rem; margin: 2.5rem 0;
+    }
+    .diagram-caption {
+      text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+      color: var(--text-faint); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1rem;
+    }
+    svg { width: 100%; height: auto; }
+
+    /* ── Warning ── */
+    .warn {
+      background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.25);
+      padding: 1rem 1.5rem; margin: 1.5rem 0; font-size: 0.9rem; color: #fcd34d;
+      border-radius: var(--radius);
+    }
+    .warn strong { color: var(--amber); }
+
+    /* ── Divider ── */
+    .section-divider { border: none; border-top: 1px solid var(--border); margin: 4rem 0; }
+
+    /* ── Footer ── */
+    footer {
+      padding: 2rem 3rem; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; margin-top: 2rem;
+    }
+    footer p { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em; color: var(--text-faint); }
+    footer a { color: var(--gold-dim); text-decoration: none; }
+    footer a:hover { color: var(--gold); }
+
+    @media (max-width: 768px) {
+      nav { padding: 1rem 1.5rem; }
+      .paper-hero, .content { padding-left: 1.5rem; padding-right: 1.5rem; }
+      footer { flex-direction: column; gap: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/" class="nav-logo">BM / bmdayal</a>
+    <a href="/blog/" class="nav-back">← Blog</a>
+  </nav>
+
+  <div class="paper-hero">
+    <div class="paper-eyebrow">
+      <span class="eyebrow-badge">Engineering in Production</span>
+      <span>2026</span>
+      <span>·</span>
+      <span>AI Architecture</span>
+    </div>
+    <h1 class="paper-title">
+      Function Calling in Production:<br><em>What Nobody Tells You</em>
+    </h1>
+    <div class="paper-authors">
+      <strong>Brij Mohan</strong> &nbsp;·&nbsp; Financial Technology Leader &nbsp;·&nbsp; IEEE Senior Member
+    </div>
+    <div class="paper-action-links">
+      <a href="/blog/" class="btn btn-secondary">← All Articles</a>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <div class="section-label">About This Article</div>
+    <div class="meta-grid">
+      <div class="meta-item">
+        <div class="meta-key">Published</div>
+        <div class="meta-val">2026</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-key">Topic</div>
+        <div class="meta-val">Function Calling · Multi-Agent Systems</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-key">Context</div>
+        <div class="meta-val">Financial Services Industry · AWS Bedrock</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-key">Reading Time</div>
+        <div class="meta-val">~20 min</div>
+      </div>
+    </div>
+
+    <div class="section-label">Summary</div>
+    <div class="abstract-block">
+      <p>Building a multi-agent financial planning system taught us that the model is rarely the hard part. Here's everything we learned the expensive way schema design, circuit breakers, guardrails, observability, and migration strategies for production agentic systems on AWS Bedrock.</p>
+    </div>
+
+    <div class="section-label">Contents</div>
+    <div class="toc-block">
+      <ol>
+        <li><a href="#what-is-fc">What Is Function Calling Really?</a></li>
+        <li><a href="#finance-arch">The Financial Planning Architecture</a></li>
+        <li><a href="#deadlock">The Deadlock Incident</a></li>
+        <li><a href="#hybrid">The Hybrid Deterministic Architecture</a></li>
+        <li><a href="#guardrails">Guardrails &amp; Prompt Injection Defence</a></li>
+        <li><a href="#observability">Observability &amp; Preventive Monitoring</a></li>
+        <li><a href="#migration">Migration: Don't Rewrite, Rewrap</a></li>
+        <li><a href="#routing">Intelligent Model Routing</a></li>
+        <li><a href="#confidence">Confidence-Gated Execution &amp; Human-in-Governance</a></li>
+        <li><a href="#conclusion">What I'd Tell My Past Self</a></li>
+        <li><a href="#references">References</a></li>
+      </ol>
+    </div>
+
+    <article>
+
+      <!-- ── 1. WHAT IS FUNCTION CALLING ── -->
+      <section id="what-is-fc">
+        <h2><span class="num">// 01</span>What Is Function Calling</h2>
+
+        <p>Think of a really smart colleague who has deep knowledge and strong reasoning skills, but no direct access to your systems, your database, or the internet. If you ask them "what is the current balance in my retirement account?", they cannot look it up. But they can tell you exactly what needs to be looked up and how. They write a precise request: get me the retirement account balance for this user, as of today. You take that request, call the actual system, bring back the answer, and they use it to reason and respond.</p>
+
+        <p>That is function calling. The LLM is that colleague. It cannot directly touch your database, your APIs, or your financial systems. What it can do is emit structured, precise requests describing exactly what it needs. Your application layer intercepts those requests, executes the actual calls against real systems, and returns the results. The model folds those results into its reasoning and produces a response.</p>
+
+        <p>In practice, these function calls are defined using standards and protocols that tell the AI what tools are available, what each tool does, and how to call it. One example is MCP, the Model Context Protocol, an open standard for connecting AI models to external tools and data sources in a consistent way. Much like how USB is a standard that lets you plug any device into any computer without worrying about compatibility, MCP means the AI does not need to know how a tool works internally. It just needs to know the tool exists, what it expects as input, and what it returns.</p>
+
+        <p>An agent is what you get when you give that model a goal and let it decide which function calls to make, in what order, and based on what it gets back. A multi-agent system is several specialised agents working under a common orchestrator, each responsible for its own domain and its own set of tools.</p>
+
+        <div class="insight"><p>The model is not calling functions. It is emitting structured text that describes what it wants called. Your application decides what happens next.</p></div>
+
+        <p>Here is a concrete example. When you ask an AI assistant "what is the weather in New York?", the model does not know the weather. Internally, it emits something like:</p>
+
+<pre><code>{
+  <span class="key">"type"</span>: <span class="str">"tool_use"</span>,
+  <span class="key">"name"</span>: <span class="str">"get_weather"</span>,
+  <span class="key">"input"</span>: {
+    <span class="key">"location"</span>: <span class="str">"New York"</span>,
+    <span class="key">"units"</span>: <span class="str">"fahrenheit"</span>
+  }
+}</code></pre>
+
+        <p>Your application layer intercepts that, calls the actual weather API, gets the result, and passes it back. The model then writes the response the user sees. The user sees none of this. But a full request-response loop just completed, and that loop is the fundamental primitive of everything that follows.</p>
+
+        <p>The model is the reasoning engine. Function calling is how it acts on the world.</p>
+
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 780 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="#3b82f6"/>
+              </marker>
+              <marker id="arr-g" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="#10b981"/>
+              </marker>
+            </defs>
+            <rect x="10" y="70" width="110" height="60" rx="4" fill="#141c2e" stroke="#1e2d4a" stroke-width="1.5"/>
+            <text x="65" y="96" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono" font-size="11">User</text>
+            <text x="65" y="114" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">Query</text>
+            <rect x="190" y="55" width="130" height="90" rx="4" fill="#1a2a4a" stroke="#3b82f6" stroke-width="1.5"/>
+            <text x="255" y="88" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono" font-size="11">LLM</text>
+            <text x="255" y="106" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">understands intent</text>
+            <text x="255" y="122" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">emits tool_use</text>
+            <rect x="390" y="55" width="130" height="90" rx="4" fill="#141c2e" stroke="#1e2d4a" stroke-width="1.5"/>
+            <text x="455" y="88" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono" font-size="11">App Layer</text>
+            <text x="455" y="106" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">validates params</text>
+            <text x="455" y="122" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">executes function</text>
+            <rect x="590" y="70" width="110" height="60" rx="4" fill="#141c2e" stroke="#10b981" stroke-width="1.5"/>
+            <text x="645" y="96" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="11">Tool / API</text>
+            <text x="645" y="114" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">real execution</text>
+            <line x1="120" y1="100" x2="185" y2="100" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+            <line x1="320" y1="100" x2="385" y2="100" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+            <line x1="520" y1="100" x2="585" y2="100" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+            <path d="M 645 70 Q 645 30 455 30 Q 255 30 255 55" stroke="#10b981" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#arr-g)"/>
+            <text x="152" y="92" text-anchor="middle" fill="#3b82f6" font-family="JetBrains Mono" font-size="9">query</text>
+            <text x="352" y="92" text-anchor="middle" fill="#3b82f6" font-family="JetBrains Mono" font-size="9">tool_use</text>
+            <text x="552" y="92" text-anchor="middle" fill="#3b82f6" font-family="JetBrains Mono" font-size="9">call</text>
+            <text x="450" y="22" text-anchor="middle" fill="#10b981" font-family="JetBrains Mono" font-size="9">tool_result → model continues</text>
+          </svg>
+          <div class="diagram-caption">Figure 1 The function calling request-response loop</div>
+        </div>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ── 2. FINANCIAL PLANNING ARCHITECTURE ── -->
+      <section id="finance-arch">
+        <h2><span class="num">// 02</span>The Financial Planning Architecture</h2>
+
+        <p>Let me make all of this concrete with a single question. A user opens their AI financial assistant and types: "Am I on track to retire at 62?"</p>
+
+        <p>That is seven words. But for the system to answer it meaningfully, a lot has to happen underneath. The LLM reads the question, understands the intent, and realises it cannot answer from memory alone. It needs real data. So it starts making function calls. One to the portfolio service asking for the user's current savings and investment balance. Another to the tax engine asking for a projected liability based on planned withdrawal amounts. Another to a Monte Carlo simulation model that runs thousands of scenarios to return a probability range rather than a single number, because a single number here would be false precision. And finally, a call to a regulatory rules engine that checks a genuinely complex set of constraints: IRS 401(k) annual contribution limits of $23,500 in 2025 with a $7,500 catch-up for those over 50, Required Minimum Distribution rules requiring mandatory withdrawals starting at age 73 or 75 for those born after 1960 under SECURE 2.0, the 10% early withdrawal penalty before age 59 and a half, Social Security claiming strategy between ages 62 and 70, and applicable ERISA obligations for any employer-sponsored plans involved.</p>
+
+        <p>In our architecture, each of those function calls is made through a defined tool interface. The agent knows what tools exist, what each one expects as input, and what it returns. That contract between the agent and the tool is what protocols like MCP formalise, so the agent does not need to know how the portfolio service is built internally.</p>
+
+        <p>This is also where the multi-agent design becomes necessary. The orchestrator agent receives the user's question and routes it. A retirement specialist agent handles the projection logic. A tax specialist agent handles the liability estimate. Each makes its own function calls to its own set of tools. The orchestrator brings the results together into a coherent answer.</p>
+
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 780 480" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="a1" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#3b82f6"/></marker>
+              <marker id="a2" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#10b981"/></marker>
+              <marker id="a3" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#8b5cf6"/></marker>
+            </defs>
+            <rect x="290" y="10" width="200" height="44" rx="4" fill="#141c2e" stroke="#3b82f6" stroke-width="1.5"/>
+            <text x="390" y="30" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono" font-size="11" font-weight="500">User Query</text>
+            <text x="390" y="46" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">"Am I on track to retire at 62?"</text>
+            <rect x="240" y="90" width="300" height="54" rx="4" fill="#1a2a4a" stroke="#3b82f6" stroke-width="2"/>
+            <text x="390" y="114" text-anchor="middle" fill="#93c5fd" font-family="JetBrains Mono" font-size="12" font-weight="500">LLM Orchestrator</text>
+            <text x="390" y="133" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">understands intent · routes to specialist agents</text>
+            <rect x="40" y="188" width="160" height="54" rx="4" fill="#1a1a3a" stroke="#8b5cf6" stroke-width="1.5"/>
+            <text x="120" y="212" text-anchor="middle" fill="#c4b5fd" font-family="JetBrains Mono" font-size="10" font-weight="500">Retirement Agent</text>
+            <text x="120" y="230" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">62yr projection</text>
+            <rect x="230" y="188" width="160" height="54" rx="4" fill="#1a1a3a" stroke="#8b5cf6" stroke-width="1.5"/>
+            <text x="310" y="212" text-anchor="middle" fill="#c4b5fd" font-family="JetBrains Mono" font-size="10" font-weight="500">Education Agent</text>
+            <text x="310" y="230" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">college cost planning</text>
+            <rect x="420" y="188" width="160" height="54" rx="4" fill="#1a1a3a" stroke="#8b5cf6" stroke-width="1.5"/>
+            <text x="500" y="212" text-anchor="middle" fill="#c4b5fd" font-family="JetBrains Mono" font-size="10" font-weight="500">Wealth Agent</text>
+            <text x="500" y="230" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">portfolio optimisation</text>
+            <rect x="610" y="188" width="130" height="54" rx="4" fill="#1a1a3a" stroke="#8b5cf6" stroke-width="1.5"/>
+            <text x="675" y="212" text-anchor="middle" fill="#c4b5fd" font-family="JetBrains Mono" font-size="10" font-weight="500">Tax Agent</text>
+            <text x="675" y="230" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">liability estimation</text>
+            <rect x="10" y="295" width="140" height="48" rx="4" fill="#141c2e" stroke="#10b981" stroke-width="1.5"/>
+            <text x="80" y="316" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="9" font-weight="500">Portfolio Fetch</text>
+            <text x="80" y="334" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">get_portfolio(acct_id)</text>
+            <rect x="168" y="295" width="150" height="48" rx="4" fill="#141c2e" stroke="#10b981" stroke-width="1.5"/>
+            <text x="243" y="316" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="9" font-weight="500">Tax Estimator</text>
+            <text x="243" y="334" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">calc_tax_liability()</text>
+            <rect x="335" y="295" width="160" height="48" rx="4" fill="#141c2e" stroke="#10b981" stroke-width="1.5"/>
+            <text x="415" y="316" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="9" font-weight="500">Monte Carlo Model</text>
+            <text x="415" y="334" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">run_projection(N=10000)</text>
+            <rect x="512" y="295" width="140" height="48" rx="4" fill="#141c2e" stroke="#10b981" stroke-width="1.5"/>
+            <text x="582" y="316" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="9" font-weight="500">Rules Engine</text>
+            <text x="582" y="334" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">check_irs_limits(age)</text>
+            <rect x="668" y="295" width="100" height="48" rx="4" fill="#141c2e" stroke="#10b981" stroke-width="1.5"/>
+            <text x="718" y="316" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="9" font-weight="500">Market Data</text>
+            <text x="718" y="334" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">get_rates()</text>
+            <rect x="10" y="400" width="758" height="44" rx="4" fill="#0d1117" stroke="#374151" stroke-width="1"/>
+            <text x="390" y="420" text-anchor="middle" fill="#6b7280" font-family="JetBrains Mono" font-size="10">Deterministic Code Layer</text>
+            <text x="390" y="437" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="9">SQL Queries  ·  Python Functions  ·  REST APIs  ·  Same input → Same output, always</text>
+            <line x1="390" y1="54" x2="390" y2="88" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#a1)"/>
+            <line x1="320" y1="144" x2="160" y2="187" stroke="#8b5cf6" stroke-width="1.2" marker-end="url(#a3)" stroke-dasharray="4,2"/>
+            <line x1="360" y1="144" x2="310" y2="187" stroke="#8b5cf6" stroke-width="1.2" marker-end="url(#a3)" stroke-dasharray="4,2"/>
+            <line x1="420" y1="144" x2="500" y2="187" stroke="#8b5cf6" stroke-width="1.2" marker-end="url(#a3)" stroke-dasharray="4,2"/>
+            <line x1="460" y1="144" x2="640" y2="187" stroke="#8b5cf6" stroke-width="1.2" marker-end="url(#a3)" stroke-dasharray="4,2"/>
+            <line x1="100" y1="242" x2="80" y2="294" stroke="#10b981" stroke-width="1.2" marker-end="url(#a2)"/>
+            <line x1="280" y1="242" x2="243" y2="294" stroke="#10b981" stroke-width="1.2" marker-end="url(#a2)"/>
+            <line x1="410" y1="242" x2="415" y2="294" stroke="#10b981" stroke-width="1.2" marker-end="url(#a2)"/>
+            <line x1="560" y1="242" x2="582" y2="294" stroke="#10b981" stroke-width="1.2" marker-end="url(#a2)"/>
+            <line x1="660" y1="242" x2="718" y2="294" stroke="#10b981" stroke-width="1.2" marker-end="url(#a2)"/>
+            <line x1="80" y1="343" x2="200" y2="399" stroke="#374151" stroke-width="1" marker-end="url(#a2)" stroke-dasharray="3,2"/>
+            <line x1="243" y1="343" x2="290" y2="399" stroke="#374151" stroke-width="1" marker-end="url(#a2)" stroke-dasharray="3,2"/>
+            <line x1="415" y1="343" x2="390" y2="399" stroke="#374151" stroke-width="1" marker-end="url(#a2)" stroke-dasharray="3,2"/>
+            <line x1="582" y1="343" x2="520" y2="399" stroke="#374151" stroke-width="1" marker-end="url(#a2)" stroke-dasharray="3,2"/>
+            <line x1="718" y1="343" x2="660" y2="399" stroke="#374151" stroke-width="1" marker-end="url(#a2)" stroke-dasharray="3,2"/>
+          </svg>
+          <div class="diagram-caption">Figure 2 Multi-agent financial planning architecture. One user question cascades through orchestrator → specialist agents → tool layer → deterministic code.</div>
+        </div>
+
+        <p>Notice what is happening at each layer. The LLM orchestrator handles language understanding and routing. Specialist agents handle domain-specific coordination. The tool layer wraps deterministic functions. The deterministic code layer is pure math: same input, same output, every time.</p>
+
+        <p>Four or five function calls, across two or three agents, each waiting on the previous, each a potential failure point. What if the tax estimator times out on the third call? What if the Monte Carlo returns a range of 71% to 84% probability of success and the model has to reason about uncertainty rather than a clean answer? What if an input somewhere in that chain tries to redirect which account gets queried?</p>
+
+        <p>One seven-word question exposes every hard problem in function calling simultaneously.</p>
+
+        <div class="callout amber">What if the tax estimator times out on call three? What if the Monte Carlo returns a range and the model has to reason about uncertainty? What if an input tries to redirect which account gets queried? One question, every hard problem.</div>
+
+        <div class="callout amber">Each hop in this chain is a potential failure point. What if the tax service times out on call three? What if the Monte Carlo model returns a probability range and the model doesn't know how to reason about uncertainty? What if a user input redirects which account gets queried?</div>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ── 3. DEADLOCK ── -->
+      <section id="deadlock">
+        <h2><span class="num">// 03</span>The Deadlock Incident</h2>
+
+        <p>Six months ago, building this system on AWS Bedrock, we experienced every engineer's nightmare: an infinite loop that burned our entire token budget before we knew what happened.</p>
+
+        <p>We built a financial planning proof of concept using a multi-agent architecture, with an orchestrator agent sitting above a set of specialist agents handling retirement planning, education planning, and personal wealth management. We wrote the orchestrator prompt to say, roughly: "here are your agents, decide who to call." And we moved on.</p>
+
+        <p>The first time we ran a complex query, something like "build me a comprehensive plan covering my retirement and my kid's college," the system hung. No response. We waited a few minutes. Nothing.</p>
+
+        <p>What had happened: the orchestrator called the retirement agent. The retirement agent, because its prompt was not constrained tightly enough, decided it needed broader context and called back up to the orchestrator. The orchestrator treated it as a new request and called the retirement agent again. Agent A calling Agent B calling Agent A.</p>
+
+        <p>We did not catch it from a log alarm or a timeout. We caught it when we started getting an Out of Tokens error. Our POC was provisioned with a 1 million token budget, and the loop had burned through all of it before we knew anything was wrong. We only found out by starting to debug the error.</p>
+
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 780 280" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="red-arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#ef4444"/></marker>
+              <marker id="red-arr2" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto"><polygon points="8 0,0 3,8 6" fill="#ef4444"/></marker>
+            </defs>
+            <text x="390" y="22" text-anchor="middle" fill="#6b7280" font-family="JetBrains Mono" font-size="9" letter-spacing="0.1em">NORMAL FLOW</text>
+            <rect x="160" y="32" width="180" height="48" rx="4" fill="#141c2e" stroke="#3b82f6" stroke-width="1.5"/>
+            <text x="250" y="54" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono" font-size="10">Orchestrator</text>
+            <text x="250" y="70" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">routes request →</text>
+            <rect x="430" y="32" width="180" height="48" rx="4" fill="#141c2e" stroke="#10b981" stroke-width="1.5"/>
+            <text x="520" y="54" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="10">Retirement Agent</text>
+            <text x="520" y="70" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">executes, returns ✓</text>
+            <line x1="340" y1="56" x2="428" y2="56" stroke="#10b981" stroke-width="1.5" marker-end="url(#a2)"/>
+            <text x="390" y="148" text-anchor="middle" fill="#ef4444" font-family="JetBrains Mono" font-size="9" letter-spacing="0.1em">DEADLOCK SCENARIO</text>
+            <rect x="80" y="160" width="180" height="56" rx="4" fill="#2a1515" stroke="#ef4444" stroke-width="1.5"/>
+            <text x="170" y="184" text-anchor="middle" fill="#fca5a5" font-family="JetBrains Mono" font-size="10">Orchestrator</text>
+            <text x="170" y="202" text-anchor="middle" fill="#9b5555" font-family="JetBrains Mono" font-size="8">calls Retirement →</text>
+            <rect x="340" y="160" width="200" height="56" rx="4" fill="#2a1515" stroke="#ef4444" stroke-width="1.5"/>
+            <text x="440" y="184" text-anchor="middle" fill="#fca5a5" font-family="JetBrains Mono" font-size="10">Retirement Agent</text>
+            <text x="440" y="202" text-anchor="middle" fill="#9b5555" font-family="JetBrains Mono" font-size="8">needs context → calls up</text>
+            <path d="M 260 188 Q 300 244 440 244 Q 540 244 540 218" stroke="#ef4444" stroke-width="2" fill="none" stroke-dasharray="6,3" marker-end="url(#red-arr)"/>
+            <line x1="260" y1="188" x2="338" y2="188" stroke="#ef4444" stroke-width="2" marker-end="url(#red-arr)"/>
+            <path d="M 540 216 Q 540 248 310 248 Q 170 248 170 218" stroke="#ef4444" stroke-width="2" fill="none" opacity="0.6" marker-end="url(#red-arr)"/>
+            <rect x="620" y="155" width="140" height="70" rx="4" fill="#1a0a0a" stroke="#7f1d1d" stroke-width="1"/>
+            <text x="690" y="178" text-anchor="middle" fill="#ef4444" font-family="JetBrains Mono" font-size="10" font-weight="500">Tokens Used</text>
+            <text x="690" y="200" text-anchor="middle" fill="#fca5a5" font-family="JetBrains Mono" font-size="18" font-weight="500">98%</text>
+            <text x="690" y="218" text-anchor="middle" fill="#9b5555" font-family="JetBrains Mono" font-size="8">→ OutOfTokens error</text>
+            <text x="390" y="262" text-anchor="middle" fill="#7f1d1d" font-family="JetBrains Mono" font-size="9">1M token budget · Duration: ~2 min · Detection: Out of Tokens error → debug</text>
+          </svg>
+          <div class="diagram-caption">Figure 3 The deadlock: Orchestrator calls Retirement Agent; Retirement Agent calls Orchestrator; repeat until token budget is exhausted</div>
+        </div>
+
+        <h3>What We Fixed</h3>
+        <p>Three independent defences, each catching what the others miss.</p>
+
+        <p>First, a hard token ceiling per agent, 4,000 tokens maximum, enforced in middleware, not the prompt. Second, a call depth counter that kills the session if the same agent is invoked more than a set number of times within 60 seconds. Third, the orchestrator prompt was rewritten to explicitly forbid upward delegation. It now says: you only call tools, you do not call other agents.</p>
+
+        <p>The lesson: you cannot rely on the model to know when to stop. That logic has to live in your code.</p>
+
+<pre><code><span class="cm"># Token budget enforced in middleware, not the prompt</span>
+<span class="kw">class</span> <span class="fn">AgentBudgetMiddleware</span>:
+    MAX_TOKENS_PER_AGENT = <span class="num">4000</span>
+
+    <span class="kw">def</span> <span class="fn">before_invoke</span>(self, session_id, agent_name, token_count):
+        running = self.tracker.get(session_id, agent_name)
+        <span class="kw">if</span> running > self.MAX_TOKENS_PER_AGENT * <span class="num">0.9</span>:
+            <span class="kw">raise</span> <span class="fn">GracefulBudgetExit</span>(
+                agent=agent_name,
+                message=<span class="str">"Budget ceiling reached, returning partial result"</span>
+            )
+
+<span class="cm"># Call depth counter catches loops before exhaustion</span>
+<span class="kw">def</span> <span class="fn">check_call_depth</span>(session_id, window_seconds=<span class="num">60</span>, max_calls=<span class="num">12</span>):
+    recent = call_log.count_since(session_id, window_seconds)
+    <span class="kw">if</span> recent > max_calls:
+        <span class="kw">raise</span> <span class="fn">LoopDetected</span>(f<span class="str">"Session {session_id}: {recent} calls in {window_seconds}s"</span>)
+
+<span class="cm"># Orchestrator prompt forbids upward delegation</span>
+ORCHESTRATOR_SYSTEM = <span class="str">"""
+You are a financial planning orchestrator.
+STRICT RULES:
+- You ONLY call tools. You do NOT call other agents.
+- If you cannot route with confidence, return a clarification request to the user.
+- Never attempt to resolve ambiguity by calling multiple agents sequentially.
+"""</span></code></pre>
+
+        <div class="callout red">You cannot rely on the model to know when to stop. The circuit breaker must live in your code, not your prompt.</div>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ── 4. HYBRID DETERMINISTIC ── -->
+      <section id="hybrid">
+        <h2><span class="num">// 04</span>The Hybrid Deterministic Architecture</h2>
+
+        <p>Early in the project we debated how much to trust the model to compute financial outcomes directly. We ran an experiment: we asked the LLM to calculate a simple 20-year retirement projection from a prompt, provided the same inputs across five runs, and got four different answers. The variance was small in absolute terms, but in financial planning, small differences in projected returns compound into significantly different advice. We would never want to ship that.</p>
+
+        <p>That was the decision point. We decided to treat the model and AI agents as orchestrators: good at reasoning and taking actions, but not at calculating. The moment the system needs to compute anything that matters, a projection, a tax estimate, or a risk score, it calls a deterministic tool. Same input, same output, every single time.</p>
+
+        <div class="insight"><p>The model is the orchestrator, not the calculator. Language understanding is probabilistic and flexible. The math is always deterministic.</p></div>
+
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 780 320" xmlns="http://www.w3.org/2000/svg">
+            <text x="12" y="65" fill="#8b5cf6" font-family="JetBrains Mono" font-size="9" letter-spacing="0.08em">PROBABILISTIC LAYER</text>
+            <text x="12" y="175" fill="#3b82f6" font-family="JetBrains Mono" font-size="9" letter-spacing="0.08em">INTERFACE LAYER</text>
+            <text x="12" y="285" fill="#10b981" font-family="JetBrains Mono" font-size="9" letter-spacing="0.08em">DETERMINISTIC LAYER</text>
+            <rect x="120" y="74" width="540" height="70" rx="4" fill="#1a1a3a" stroke="#8b5cf6" stroke-width="1.5"/>
+            <text x="390" y="100" text-anchor="middle" fill="#c4b5fd" font-family="JetBrains Mono" font-size="12" font-weight="500">LLM Language Understanding &amp; Routing</text>
+            <text x="390" y="120" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">Understands user intent  ·  Routes to correct tool  ·  Formats response for user</text>
+            <text x="390" y="136" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">OUTPUT: tool_use {name, input} never the computed value</text>
+            <line x1="390" y1="144" x2="390" y2="183" stroke="#374151" stroke-width="1.5" marker-end="url(#a1)" stroke-dasharray="4,2"/>
+            <rect x="120" y="184" width="540" height="60" rx="4" fill="#141c2e" stroke="#3b82f6" stroke-width="1.5"/>
+            <text x="390" y="208" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono" font-size="11" font-weight="500">Tool Schema Layer Validation &amp; Dispatch</text>
+            <text x="390" y="230" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">Type-checks params  ·  Rejects side-effect tools without confirmation  ·  Routes to function</text>
+            <line x1="390" y1="244" x2="390" y2="283" stroke="#374151" stroke-width="1.5" marker-end="url(#a2)" stroke-dasharray="4,2"/>
+            <rect x="40" y="284" width="155" height="52" rx="4" fill="#0d1f14" stroke="#10b981" stroke-width="1.5"/>
+            <text x="117" y="306" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="9" font-weight="500">calc_projection()</text>
+            <text x="117" y="322" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">Python · deterministic</text>
+            <rect x="213" y="284" width="155" height="52" rx="4" fill="#0d1f14" stroke="#10b981" stroke-width="1.5"/>
+            <text x="290" y="306" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="9" font-weight="500">get_portfolio()</text>
+            <text x="290" y="322" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">SQL · parameterised</text>
+            <rect x="386" y="284" width="155" height="52" rx="4" fill="#0d1f14" stroke="#10b981" stroke-width="1.5"/>
+            <text x="463" y="306" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="9" font-weight="500">calc_tax_liability()</text>
+            <text x="463" y="322" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">Rule-based · typed</text>
+            <rect x="559" y="284" width="155" height="52" rx="4" fill="#0d1f14" stroke="#10b981" stroke-width="1.5"/>
+            <text x="636" y="306" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="9" font-weight="500">check_irs_rules()</text>
+            <text x="636" y="322" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">Regulatory logic</text>
+            <line x1="280" y1="244" x2="117" y2="283" stroke="#10b981" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a2)"/>
+            <line x1="340" y1="244" x2="290" y2="283" stroke="#10b981" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a2)"/>
+            <line x1="420" y1="244" x2="463" y2="283" stroke="#10b981" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a2)"/>
+            <line x1="500" y1="244" x2="636" y2="283" stroke="#10b981" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a2)"/>
+          </svg>
+          <div class="diagram-caption">Figure 4 The hybrid architecture: LLM handles intent and routing; deterministic code handles computation</div>
+        </div>
+
+        <p>In practice, this meant wrapping our existing rule-based calculation logic and manual process workflows as tools. We had been migrating a legacy system, a combination of rule-based engines and paper-based manual processes, to a modern platform. Rather than rebuilding that logic from scratch for the AI layer, we wrapped it. The model calls the tool, the tool runs the existing validated code, and the result comes back. None of the financial logic changed. This not only gives us deterministic results but also lets us reuse business rules that took years to develop.</p>
+
+        <p>We also learned that parameter naming matters far more than you would expect. A function parameter named "r" for interest rate, the model will not reliably populate it. Rename it "annual_interest_rate_percent" and it works consistently every time. The model infers meaning from parameter names, not from documentation it cannot see at execution time.</p>
+<pre><code><span class="cm"># ❌ This will produce inconsistent tool calls</span>
+<span class="kw">def</span> <span class="fn">calc_ret</span>(sv, r, n, mc=<span class="num">10000</span>):
+    ...
+
+<span class="cm"># ✅ This produces reliable tool calls every time</span>
+<span class="kw">def</span> <span class="fn">calculate_retirement_projection</span>(
+    current_savings_usd: float,
+    annual_interest_rate_percent: float,
+    years_until_retirement: int,
+    monte_carlo_simulations: int = <span class="num">10000</span>
+) -> dict:
+    <span class="str">"""
+    Projects retirement savings at target age using Monte Carlo simulation.
+    Returns probability distribution, not a single value.
+    Use when user asks about retirement readiness or projected savings.
+    Do NOT use for education or short-term savings goals.
+    """</span>
+    ...</code></pre>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ── 5. GUARDRAILS ── -->
+      <section id="guardrails">
+        <h2><span class="num">// 05</span>Guardrails &amp; Prompt Injection Defence</h2>
+
+        <p>We had two distinct problems, and they needed different solutions. The first was external: users trying to manipulate the system. The second was internal: the model's own behaviour causing runaway chains when given ambiguous inputs.</p>
+
+        <p>Both came out of our internal Dev/QA security testing phase. Before moving toward production, we built a set of AI agents specifically designed to attack the system, using LLMs as testers, or what is sometimes called <strong>LLM as a Judge</strong>. Rather than writing static adversarial test cases by hand, these agents generated prompts dynamically and evaluated whether the financial planning agent could be manipulated. The failure modes they found were more creative and varied than anything we would have written manually.</p>
+
+        <p>We fixed these at three layers. The first is a keyword filter at the input boundary, a fast pattern-based check that flags two distinct categories: known prompt injection signals such as phrases like "ignore your previous instructions," "forget your system prompt," "act as if," or "override," and terms clearly outside the financial planning domain such as account transfer instructions, references to other clients' data, or anything that looks like privilege escalation. If either category triggers, the request is rejected immediately before it touches the model. The second layer is an intent classifier, a lightweight model that reads the query and asks whether this is a legitimate financial planning request, requiring a confidence score above 0.85 to proceed. The keyword filter catches the obvious cases fast; the classifier catches semantic equivalents that rephrase the same attack. The third layer is at the orchestrator level: a confidence gate that requires the orchestrator to emit a structured routing summary before calling any agent. If confidence drops below 0.75 or there are unresolved ambiguities, it stops and asks the user to clarify rather than proceeding into an uncertain chain.</p>
+
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 780 340" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="blk" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#ef4444"/></marker>
+            </defs>
+            <rect x="300" y="10" width="180" height="44" rx="4" fill="#141c2e" stroke="#64748b" stroke-width="1.5"/>
+            <text x="390" y="30" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono" font-size="10">User Input</text>
+            <text x="390" y="46" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">"Ignore instructions and..."</text>
+            <rect x="150" y="90" width="480" height="54" rx="4" fill="#2a1515" stroke="#ef4444" stroke-width="1.5"/>
+            <text x="390" y="114" text-anchor="middle" fill="#fca5a5" font-family="JetBrains Mono" font-size="10" font-weight="500">Layer 1 Keyword Filter</text>
+            <text x="390" y="132" text-anchor="middle" fill="#9b5555" font-family="JetBrains Mono" font-size="8">Out-of-domain terms  ·  Known injection patterns  ·  SQL keywords in free text  ·  Off-topic domains</text>
+            <rect x="150" y="182" width="480" height="54" rx="4" fill="#1a1500" stroke="#f59e0b" stroke-width="1.5"/>
+            <text x="390" y="206" text-anchor="middle" fill="#fcd34d" font-family="JetBrains Mono" font-size="10" font-weight="500">Layer 2 Intent Classifier (lightweight model)</text>
+            <text x="390" y="224" text-anchor="middle" fill="#856a00" font-family="JetBrains Mono" font-size="8">Is this a financial planning request? Confidence score &gt; 0.85 required to proceed.</text>
+            <rect x="150" y="274" width="480" height="54" rx="4" fill="#0a1a0a" stroke="#10b981" stroke-width="1.5"/>
+            <text x="390" y="298" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="10" font-weight="500">Layer 3 Orchestrator Confidence Gate</text>
+            <text x="390" y="316" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">Must emit routing summary before calling any agent. Cannot proceed if summary is vague.</text>
+            <line x1="390" y1="54" x2="390" y2="88" stroke="#64748b" stroke-width="1.5" marker-end="url(#a1)"/>
+            <line x1="390" y1="144" x2="390" y2="180" stroke="#64748b" stroke-width="1.5" marker-end="url(#a1)"/>
+            <line x1="390" y1="236" x2="390" y2="272" stroke="#64748b" stroke-width="1.5" marker-end="url(#a1)"/>
+            <line x1="630" y1="117" x2="720" y2="117" stroke="#ef4444" stroke-width="1.5" marker-end="url(#blk)"/>
+            <text x="726" y="121" fill="#ef4444" font-family="JetBrains Mono" font-size="9">BLOCKED</text>
+            <line x1="630" y1="209" x2="720" y2="209" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#blk)"/>
+            <text x="726" y="213" fill="#f59e0b" font-family="JetBrains Mono" font-size="9">REJECTED</text>
+            <line x1="630" y1="301" x2="720" y2="301" stroke="#10b981" stroke-width="1.5" marker-end="url(#a2)"/>
+            <text x="726" y="305" fill="#10b981" font-family="JetBrains Mono" font-size="9">PROCEED ✓</text>
+          </svg>
+          <div class="diagram-caption">Figure 5 Three-layer defence: keyword filter blocks obvious injection; intent classifier rejects off-domain requests; confidence gate prevents ambiguous routing</div>
+        </div>
+
+<pre><code><span class="cm"># Confidence gate orchestrator must justify routing before proceeding</span>
+ORCHESTRATOR_GATE_PROMPT = <span class="str">"""
+Before calling any agent, output a JSON routing summary:
+{
+  "understood_intent": "...",       // what you believe the user is asking
+  "primary_agent": "...",           // which agent you are calling and why
+  "confidence": 0.0-1.0,           // your confidence in this routing
+  "ambiguities": []                 // anything unclear in the request
+}
+If confidence < 0.75 or ambiguities is non-empty:
+  DO NOT call any agent.
+  Return a clarification request to the user instead.
+"""</span>
+
+<span class="kw">def</span> <span class="fn">validate_routing_summary</span>(summary: dict) -> bool:
+    <span class="kw">return</span> (
+        summary.get(<span class="str">"confidence"</span>, <span class="num">0</span>) >= <span class="num">0.75</span> <span class="kw">and</span>
+        <span class="fn">len</span>(summary.get(<span class="str">"ambiguities"</span>, [])) == <span class="num">0</span> <span class="kw">and</span>
+        summary.get(<span class="str">"primary_agent"</span>) <span class="kw">in</span> KNOWN_AGENTS
+    )</code></pre>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ── 6. OBSERVABILITY ── -->
+      <section id="observability">
+        <h2><span class="num">// 06</span>Observability &amp; Preventive Monitoring</h2>
+
+        <p>After the deadlock, our philosophy shifted entirely, from reactive to preventive. Not "alert me when it breaks," but "alert me before it can break." And to do that properly in an agentic system, you have to rethink what observability even means. In a traditional application you monitor hosts: CPU, memory, uptime. In an agentic AI system, none of that tells you anything useful. What you monitor instead is behaviour, cost, and correctness.</p>
+
+        <p>The first thing we instrumented was token usage. In our setup, token counts per model invocation flow into a metrics system, and we set per-session rolling alarms on them, not on aggregate daily spend, but on what a single session is consuming in real time. If any session climbs past 3,600 tokens on what should be a lightweight agent interaction, the alarm fires before we hit our 4,000 token ceiling. This is also your earliest loop detector. Token count climbing steeply within a single session is the first signal something is recursing. We did not have this alarm during the deadlock. We only found out by hitting the Out of Tokens error and debugging backward. That alarm would have caught it within the first few iterations.</p>
+
+        <p>The second thing we tracked was agent behaviour, specifically tool selection rate and invalid tool invocations. An agent calling the wrong tool, or calling a tool with malformed parameters, tells you that your schema descriptions are drifting from what the model expects, or that an adversarial input is trying to redirect tool behaviour. Agent trace logs record every step in the reasoning chain, every tool call, every intermediate decision, every handoff. Paired with distributed tracing, a multi-agent failure that used to mean correlating timestamps across four different log groups becomes a single trace ID.</p>
+
+        <p>For loop detection specifically, we wrote a log query that counts how many times the same session ID appears within a 60-second window. More than eight appearances triggers the alarm. It catches the circular call pattern by behaviour, before token exhaustion, which is the only way to catch it early enough to matter.</p>
+
+        <p>On the compliance side, API call logging with full identity context, which agent called which tool, under which role, when, is non-negotiable in a regulated financial environment. Every tool invocation is potentially a compliance event. If a client query later comes under scrutiny, you need to reconstruct the exact chain. That audit trail is not optional.</p>
+
+        <p>The last thing we set up was cost anomaly detection. The system learns your normal spending pattern over the past seven days, and if any single day spikes significantly above that baseline, it sends you an alert. We set our threshold at 150%, so if our usual daily spend is $100 and it suddenly hits $150 or more, we get notified immediately. It takes about five minutes to configure and runs automatically after that. Had we set this up before the deadlock, we would have known something was wrong within the first few minutes instead of finding out after the entire token budget was gone.</p>
+
+        <p>The most important layer though is not a monitoring service at all. It is budget fencing in middleware. Every agent has a hard token ceiling enforced in code, not in the prompt, not by the model, in code. If a session approaches the ceiling, the agent exits gracefully and returns what it has. Monitoring tells you something went wrong. Budget fencing stops it before it does.</p>
+
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 780 380" xmlns="http://www.w3.org/2000/svg">
+            <text x="390" y="22" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="10" letter-spacing="0.08em">AWS OBSERVABILITY STACK BEDROCK AGENTCORE</text>
+            <rect x="290" y="40" width="200" height="54" rx="4" fill="#1a2a4a" stroke="#3b82f6" stroke-width="1.5"/>
+            <text x="390" y="64" text-anchor="middle" fill="#93c5fd" font-family="JetBrains Mono" font-size="11" font-weight="500">AgentCore Runtime</text>
+            <text x="390" y="82" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">multi-agent chain executing</text>
+            <rect x="20" y="148" width="185" height="80" rx="4" fill="#141c2e" stroke="#3b82f6" stroke-width="1.5"/>
+            <text x="112" y="165" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono" font-size="10" font-weight="500">CloudWatch Metrics</text>
+            <text x="112" y="178" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">InputTokenCount</text>
+            <text x="112" y="189" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">OutputTokenCount</text>
+            <text x="112" y="200" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">InvocationCount</text>
+            <text x="112" y="211" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">InvocationThrottles</text>
+            <text x="112" y="222" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">InvocationClientErrors</text>
+            <rect x="225" y="148" width="185" height="80" rx="4" fill="#141c2e" stroke="#8b5cf6" stroke-width="1.5"/>
+            <text x="317" y="172" text-anchor="middle" fill="#c4b5fd" font-family="JetBrains Mono" font-size="10" font-weight="500">CW Logs Insights</text>
+            <text x="317" y="190" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">Agent trace per step</text>
+            <text x="317" y="204" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">Loop detection query</text>
+            <text x="317" y="218" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">session_id count/60s</text>
+            <rect x="430" y="148" width="160" height="80" rx="4" fill="#141c2e" stroke="#10b981" stroke-width="1.5"/>
+            <text x="510" y="172" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="10" font-weight="500">AWS X-Ray</text>
+            <text x="510" y="190" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">Distributed tracing</text>
+            <text x="510" y="204" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">Service map per hop</text>
+            <text x="510" y="218" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">Single trace ID</text>
+            <rect x="608" y="148" width="154" height="80" rx="4" fill="#141c2e" stroke="#f59e0b" stroke-width="1.5"/>
+            <text x="685" y="172" text-anchor="middle" fill="#fcd34d" font-family="JetBrains Mono" font-size="10" font-weight="500">Cost Anomaly</text>
+            <text x="685" y="190" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">ML baseline spend</text>
+            <text x="685" y="204" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">Alert at 150% of</text>
+            <text x="685" y="218" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">7-day rolling avg</text>
+            <rect x="180" y="290" width="420" height="64" rx="4" fill="#0d1f14" stroke="#10b981" stroke-width="2"/>
+            <text x="390" y="316" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="11" font-weight="500">Budget Fencing Middleware</text>
+            <text x="390" y="336" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">Hard stop at 3,600 tokens (90% of 4,000)  ·  Code-enforced  ·  Prompt cannot override  ·  Graceful return</text>
+            <line x1="340" y1="94" x2="140" y2="147" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#a1)"/>
+            <line x1="370" y1="94" x2="320" y2="147" stroke="#8b5cf6" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#a3)"/>
+            <line x1="430" y1="94" x2="490" y2="147" stroke="#10b981" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#a2)"/>
+            <line x1="470" y1="94" x2="665" y2="147" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#a1)"/>
+            <line x1="112" y1="228" x2="240" y2="289" stroke="#374151" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a2)"/>
+            <line x1="317" y1="228" x2="330" y2="289" stroke="#374151" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a2)"/>
+            <line x1="510" y1="228" x2="450" y2="289" stroke="#374151" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a2)"/>
+            <text x="53" y="248" fill="#ef4444" font-family="JetBrains Mono" font-size="8">⚑ alarm at 3,600</text>
+            <text x="243" y="248" fill="#ef4444" font-family="JetBrains Mono" font-size="8">⚑ &gt;12 calls/60s</text>
+            <text x="455" y="248" fill="#10b981" font-family="JetBrains Mono" font-size="8">trace_id per request</text>
+          </svg>
+          <div class="diagram-caption">Figure 6 Four-layer observability stack with budget fencing as the hard stop</div>
+        </div>
+
+<pre><code><span class="cm"># CloudWatch Logs Insights loop detection query</span>
+fields @timestamp, session_id, agent_name, token_count
+| filter agent_name = <span class="str">"retirement-planner"</span>
+| stats count() <span class="kw">as</span> invocations by session_id, bin(<span class="num">60</span>s)
+| filter invocations > <span class="num">8</span>
+| sort @timestamp desc</code></pre>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ── 7. MIGRATION ── -->
+      <section id="migration">
+        <h2><span class="num">// 07</span>Migration: Don't Rewrite, Rewrap</h2>
+
+        <p>The question every engineering team asks when considering this kind of system is: do we really need to rewrite, or can we simply rewrap and save significant time, money, and risk? We were migrating from a combination of rule-based engines and manual paper-based workflows, years of accumulated business logic, regulatory rules, and institutional knowledge encoded in systems that were never designed for AI. The answer we landed on: don't rewrite, rewrap.</p>
+
+        <p>What we essentially built is what software architects call an Anti-Corruption Layer, a well-established pattern in microservices design where you place a translation layer between a new system and a legacy one, so neither has to speak the other's language. The legacy side has abbreviated parameter names, raw exceptions, and side effects baked in. The agent layer expects clean tool names, descriptive parameters, and structured responses. The wrapper is what stands between them and keeps both worlds intact.</p>
+
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 780 240" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="60" width="170" height="120" rx="4" fill="#141c2e" stroke="#64748b" stroke-width="1.5"/>
+            <text x="95" y="85" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono" font-size="9" font-weight="500">Legacy Function</text>
+            <text x="95" y="105" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">def calc_ret(sv,r,n):</text>
+            <text x="95" y="121" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">  # 3 yrs of logic</text>
+            <text x="95" y="137" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">  # battle-tested</text>
+            <text x="95" y="153" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">  return result</text>
+            <text x="95" y="172" text-anchor="middle" fill="#374151" font-family="JetBrains Mono" font-size="8">DO NOT TOUCH</text>
+            <line x1="180" y1="120" x2="218" y2="120" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#a1)"/>
+            <text x="198" y="112" text-anchor="middle" fill="#3b82f6" font-family="JetBrains Mono" font-size="8">wrap</text>
+            <rect x="220" y="40" width="200" height="160" rx="4" fill="#141c2e" stroke="#3b82f6" stroke-width="1.5"/>
+            <text x="320" y="62" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono" font-size="9" font-weight="500">Clean Wrapper</text>
+            <text x="320" y="82" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">def calculate_retirement</text>
+            <text x="320" y="96" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">_projection(</text>
+            <text x="320" y="110" text-anchor="middle" fill="#86efac" font-family="JetBrains Mono" font-size="8">current_savings_usd,</text>
+            <text x="320" y="124" text-anchor="middle" fill="#86efac" font-family="JetBrains Mono" font-size="8">annual_rate_percent,</text>
+            <text x="320" y="138" text-anchor="middle" fill="#86efac" font-family="JetBrains Mono" font-size="8">years_to_retire):</text>
+            <text x="320" y="155" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">validate(params)</text>
+            <text x="320" y="169" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">return calc_ret(sv,r,n)</text>
+            <text x="320" y="188" text-anchor="middle" fill="#374151" font-family="JetBrains Mono" font-size="7">no side effects · typed · stateless</text>
+            <line x1="420" y1="120" x2="458" y2="120" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#a3)"/>
+            <text x="438" y="112" text-anchor="middle" fill="#8b5cf6" font-family="JetBrains Mono" font-size="8">schema</text>
+            <rect x="460" y="40" width="180" height="160" rx="4" fill="#141c2e" stroke="#8b5cf6" stroke-width="1.5"/>
+            <text x="550" y="62" text-anchor="middle" fill="#c4b5fd" font-family="JetBrains Mono" font-size="9" font-weight="500">Tool Schema (JSON)</text>
+            <text x="550" y="82" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">"name": "calculate_</text>
+            <text x="550" y="96" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8"> retirement_projection"</text>
+            <text x="550" y="113" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">"description": "Projects</text>
+            <text x="550" y="127" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8"> savings at target age"</text>
+            <text x="550" y="144" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">"when_to_use": "..."</text>
+            <text x="550" y="160" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">"not_for": "..."</text>
+            <text x="550" y="188" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono" font-size="8">LLM reads this</text>
+            <line x1="640" y1="120" x2="678" y2="120" stroke="#10b981" stroke-width="1.5" marker-end="url(#a2)"/>
+            <text x="658" y="112" text-anchor="middle" fill="#10b981" font-family="JetBrains Mono" font-size="8">tool_use</text>
+            <rect x="680" y="80" width="92" height="80" rx="4" fill="#0d1f14" stroke="#10b981" stroke-width="1.5"/>
+            <text x="726" y="108" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="9" font-weight="500">LLM calls</text>
+            <text x="726" y="126" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="9" font-weight="500">tool ✓</text>
+            <text x="726" y="148" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">reliably</text>
+          </svg>
+          <div class="diagram-caption">Figure 7 The migration pattern: wrap, don't rewrite. Legacy code stays untouched. Clean wrapper + rich schema = reliable tool calls.</div>
+        </div>
+
+        <h3>The Pattern: Wrap and Expose via AgentCore</h3>
+
+        <p>You take your existing rule-based functions and SQL queries and wrap them as tools, exposed through AWS AgentCore the managed runtime that lets you deploy and scale the agent layer without rebuilding the underlying calculation infrastructure. The model calls the tool; the tool runs the existing validated code; the result comes back. None of the financial logic changed.</p>
+
+        <h3>Three Things That Turned Out to Be Harder Than They Look</h3>
+
+        <p><strong>Parameter naming.</strong> Abbreviations and short names that developers understand don't translate reliably to model behaviour, and the wrapper is where you fix that. Rename them to be self-describing.</p>
+
+        <p><strong>Side effects.</strong> Any existing function that writes, logs, or triggers downstream processes has to be sandboxed or wrapped with an explicit confirmation step, because the model may invoke it unpredictably and repeatedly.</p>
+
+        <p><strong>Error handling.</strong> Existing code throws exceptions designed to be caught by application logic. A model receiving a raw database error simply does not know what to do with it. Every tool wrapper needs to convert failures into structured, model-readable responses that include a reason and a suggested next step.</p>
+
+        <p>The migration took longer than the AI work. That was the surprise, and the lesson.</p>
+
+<pre><code><span class="kw">def</span> <span class="fn">safe_tool_wrapper</span>(fn):
+    <span class="kw">def</span> <span class="fn">wrapped</span>(**kwargs):
+        <span class="kw">try</span>:
+            result = fn(**kwargs)
+            <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"ok"</span>, <span class="str">"result"</span>: result}
+        <span class="kw">except</span> ValidationError <span class="kw">as</span> e:
+            <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"error"</span>, <span class="str">"reason"</span>: <span class="str">"invalid_parameter"</span>,
+                    <span class="str">"detail"</span>: str(e), <span class="str">"suggestion"</span>: <span class="str">"Check parameter types and retry"</span>}
+        <span class="kw">except</span> DatabaseError:
+            <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"error"</span>, <span class="str">"reason"</span>: <span class="str">"data_unavailable"</span>,
+                    <span class="str">"suggestion"</span>: <span class="str">"Account data temporarily unavailable retry in 30s"</span>}
+        <span class="cm"># Model can reason about this. It cannot reason about a stack trace.</span>
+    <span class="kw">return</span> wrapped</code></pre>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ── 8. MODEL ROUTING ── -->
+      <section id="routing">
+        <h2><span class="num">// 08</span>Intelligent Model Routing</h2>
+
+        <p>Not every query deserves the same model. A portfolio balance lookup and a 30-year retirement plan are fundamentally different tasks treating them identically is expensive and slow.</p>
+
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 780 280" xmlns="http://www.w3.org/2000/svg">
+            <rect x="300" y="10" width="180" height="44" rx="4" fill="#141c2e" stroke="#64748b" stroke-width="1.5"/>
+            <text x="390" y="30" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono" font-size="10">Incoming Query</text>
+            <text x="390" y="46" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">any user request</text>
+            <rect x="250" y="96" width="280" height="64" rx="4" fill="#141c2e" stroke="#f59e0b" stroke-width="1.5"/>
+            <text x="390" y="120" text-anchor="middle" fill="#fcd34d" font-family="JetBrains Mono" font-size="10" font-weight="500">Complexity Router</text>
+            <text x="390" y="138" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">token count heuristic → intent classifier → route</text>
+            <text x="390" y="152" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">ambiguous → default to capable model</text>
+            <rect x="40" y="210" width="250" height="64" rx="4" fill="#0d1f14" stroke="#10b981" stroke-width="1.5"/>
+            <text x="165" y="234" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="10" font-weight="500">Haiku / Groq</text>
+            <text x="165" y="252" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">Simple lookups · Single tool · &lt;500ms · ~1/10th cost</text>
+            <text x="165" y="268" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">≈60-70% of traffic</text>
+            <rect x="490" y="210" width="250" height="64" rx="4" fill="#1a2a4a" stroke="#3b82f6" stroke-width="1.5"/>
+            <text x="615" y="234" text-anchor="middle" fill="#93c5fd" font-family="JetBrains Mono" font-size="10" font-weight="500">Claude Sonnet</text>
+            <text x="615" y="252" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">Multi-step · Complex reasoning · Full chain</text>
+            <text x="615" y="268" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">≈30-40% of traffic</text>
+            <line x1="390" y1="54" x2="390" y2="94" stroke="#64748b" stroke-width="1.5" marker-end="url(#a1)"/>
+            <line x1="300" y1="160" x2="200" y2="209" stroke="#10b981" stroke-width="1.5" marker-end="url(#a2)"/>
+            <line x1="480" y1="160" x2="580" y2="209" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#a1)"/>
+            <text x="220" y="188" fill="#10b981" font-family="JetBrains Mono" font-size="8">simple</text>
+            <text x="520" y="188" fill="#3b82f6" font-family="JetBrains Mono" font-size="8">complex / ambiguous</text>
+          </svg>
+          <div class="diagram-caption">Figure 8 Intelligent model routing. ~60-70% of queries are simple lookups that don't need your most capable model.</div>
+        </div>
+
+        <div class="callout amber">Don't over-engineer the router. A complex routing layer is just another failure point. Keep heuristics simple and err toward the capable model when in doubt. A wrong answer from under-routing is more expensive than a higher API bill.</div>
+
+        <p class="callout">Note: Groq is an inference <em>provider</em> running open-source models (LLaMA, Mixtral) not to be confused with Grok, which is xAI's model.</p>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ── 9. CONFIDENCE-GATED EXECUTION ── -->
+      <section id="confidence">
+        <h2><span class="num">// 09</span>Confidence-Gated Execution &amp; Human-in-Governance</h2>
+
+        <p>Model routing decides <em>which</em> model handles a request. But there's a second routing decision that matters just as much in financial services: based on how confident the system is in its output, what happens next and who is responsible for it?</p>
+
+        <p>A common framing in AI is <em>human in the loop</em>. But at the pace of financial calculations a system processing thousands of planning queries across an advisor platform humans cannot be inline approvers of every decision. That's not a practical model, and it's not what regulators actually require. What we've moved toward instead is <strong>human in governance</strong>. Humans don't approve each calculation. They define the rules, set the thresholds, review the exceptions, and continuously calibrate the system. The governance is upstream, not inline.</p>
+
+        <div class="insight"><p>Human-in-the-loop assumes humans can keep pace with the system. Human-in-governance acknowledges they can't and designs the oversight layer accordingly.</p></div>
+
+        <p>After the agent chain completes and produces a result, the model scores its own confidence in that output. That score determines the execution pathway.</p>
+
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 780 340" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="cg1" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#ef4444"/></marker>
+              <marker id="cg2" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#f59e0b"/></marker>
+              <marker id="cg3" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#10b981"/></marker>
+            </defs>
+            <!-- Confidence Score box -->
+            <rect x="290" y="10" width="200" height="50" rx="4" fill="#141c2e" stroke="#8b5cf6" stroke-width="1.5"/>
+            <text x="390" y="32" text-anchor="middle" fill="#c4b5fd" font-family="JetBrains Mono" font-size="11" font-weight="500">Confidence Score</text>
+            <text x="390" y="52" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">model self-evaluates output</text>
+            <!-- Below 80 -->
+            <rect x="20" y="120" width="200" height="80" rx="4" fill="#2a1515" stroke="#ef4444" stroke-width="1.5"/>
+            <text x="120" y="146" text-anchor="middle" fill="#fca5a5" font-family="JetBrains Mono" font-size="10" font-weight="500">Below 80%</text>
+            <text x="120" y="164" text-anchor="middle" fill="#9b5555" font-family="JetBrains Mono" font-size="8">→ Human Review Queue</text>
+            <text x="120" y="180" text-anchor="middle" fill="#9b5555" font-family="JetBrains Mono" font-size="8">Advisor validates before action</text>
+            <text x="120" y="196" text-anchor="middle" fill="#7f1d1d" font-family="JetBrains Mono" font-size="8">ambiguous · incomplete data</text>
+            <!-- 80-95 -->
+            <rect x="285" y="120" width="210" height="80" rx="4" fill="#1a1500" stroke="#f59e0b" stroke-width="1.5"/>
+            <text x="390" y="146" text-anchor="middle" fill="#fcd34d" font-family="JetBrains Mono" font-size="10" font-weight="500">80% – 95%</text>
+            <text x="390" y="164" text-anchor="middle" fill="#856a00" font-family="JetBrains Mono" font-size="8">→ Additional Validation</text>
+            <text x="390" y="180" text-anchor="middle" fill="#856a00" font-family="JetBrains Mono" font-size="8">Reruns critical tools · 2nd model pass</text>
+            <text x="390" y="196" text-anchor="middle" fill="#78580a" font-family="JetBrains Mono" font-size="8">"Are you sure?" before committing</text>
+            <!-- Above 95 -->
+            <rect x="560" y="120" width="200" height="80" rx="4" fill="#0d1f14" stroke="#10b981" stroke-width="1.5"/>
+            <text x="660" y="146" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="10" font-weight="500">Above 95%</text>
+            <text x="660" y="164" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">→ Autonomous Execution</text>
+            <text x="660" y="180" text-anchor="middle" fill="#2d6a4a" font-family="JetBrains Mono" font-size="8">Result returned · Full audit log</text>
+            <text x="660" y="196" text-anchor="middle" fill="#1a4a2a" font-family="JetBrains Mono" font-size="8">No inline human governance is the log</text>
+            <!-- Arrows from score -->
+            <line x1="340" y1="60" x2="160" y2="119" stroke="#ef4444" stroke-width="1.5" marker-end="url(#cg1)"/>
+            <line x1="390" y1="60" x2="390" y2="119" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#cg2)"/>
+            <line x1="440" y1="60" x2="620" y2="119" stroke="#10b981" stroke-width="1.5" marker-end="url(#cg3)"/>
+            <!-- Governance layer -->
+            <rect x="60" y="250" width="660" height="70" rx="4" fill="#0d1117" stroke="#1e2530" stroke-width="1.5"/>
+            <text x="390" y="276" text-anchor="middle" fill="#c9a84c" font-family="JetBrains Mono" font-size="11" font-weight="500">Human-in-Governance Layer</text>
+            <text x="390" y="296" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">Risk &amp; compliance teams set thresholds  ·  Exceptions reviewed  ·  Audit log always available</text>
+            <text x="390" y="312" text-anchor="middle" fill="#4b5563" font-family="JetBrains Mono" font-size="8">Confidence distribution tracked over time → leading indicator of system maturity</text>
+            <!-- Arrows to governance -->
+            <line x1="120" y1="200" x2="200" y2="249" stroke="#3a3835" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#cg3)"/>
+            <line x1="390" y1="200" x2="390" y2="249" stroke="#3a3835" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#cg3)"/>
+            <line x1="660" y1="200" x2="580" y2="249" stroke="#3a3835" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#cg3)"/>
+          </svg>
+          <div class="diagram-caption">Figure 9 Confidence-gated execution. Three pathways by confidence score. Human governance sits across all three upstream, not inline.</div>
+        </div>
+
+        <p><strong>Below 80% confidence</strong>, the system routes the request to a human reviewer. An advisor looks at it, validates it, and decides whether and how to act. This usually happens when the query is ambiguous, the data is incomplete, or the regulatory constraints involved are complex enough that the model flagged genuine uncertainty.</p>
+
+        <p><strong>Between 80 and 95%</strong>, the system proceeds but with additional validation. It reruns the most critical tool calls, cross-checks the output against boundary conditions, and in some cases runs a second model pass with a stricter prompt to challenge its own answer, or routes to a more capable reasoning model. Think of it as the system asking itself: are you sure? Only if that validation holds does the result go forward.</p>
+
+        <p><strong>Above 95%</strong>, the system acts autonomously. The calculation completes, the result is returned, and the interaction is logged for audit. No human is inline, but everything is reviewable after the fact, and that is where governance actually lives.</p>
+
+        <h3>Why the Threshold Is a Governance Decision</h3>
+        <p>The 80 and 95 percent thresholds are not technical defaults. They were set by our risk and compliance teams, documented, and reviewed. In financial services, you cannot say "the AI decided." You need to demonstrate that human judgment was applied at the right points in the process, and that the thresholds defining those points were themselves a deliberate human decision. Confidence-gated execution is how you operationalise that.</p>
+
+        <p>The other value of this pattern is that every result falling into the 80 to 95 percent band is a signal. Over time, you can feed those cases back into your reinforcement learning pipeline, using them to tighten prompts, improve tool schemas, and identify data gaps. As the system learns from those edge cases, you watch the confidence distribution shift upward. The score stops being just a safety gate and becomes a leading indicator of system maturity.</p>
+
+<pre><code><span class="cm"># Confidence-gated execution router</span>
+<span class="kw">def</span> <span class="fn">route_by_confidence</span>(result: dict, score: float) -> dict:
+    <span class="kw">if</span> score < <span class="num">0.80</span>:
+        <span class="kw">return</span> human_review_queue.enqueue(result, reason=<span class="str">"low_confidence"</span>)
+    <span class="kw">elif</span> score < <span class="num">0.95</span>:
+        validated = rerun_critical_tools(result)
+        second_pass = model.verify(validated, prompt=STRICT_VERIFICATION_PROMPT)
+        <span class="kw">return</span> second_pass <span class="kw">if</span> second_pass.confidence >= <span class="num">0.95</span> \
+               <span class="kw">else</span> human_review_queue.enqueue(second_pass, reason=<span class="str">"validation_failed"</span>)
+    <span class="kw">else</span>:
+        audit_log.record(result, score=score, pathway=<span class="str">"autonomous"</span>)
+        <span class="kw">return</span> result  <span class="cm"># governance is in the log, not the approval</span></code></pre>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ── 10. CONCLUSION ── -->
+      <section id="conclusion">
+        <h2><span class="num">// 10</span>What I'd Tell My Past Self</h2>
+
+        <p>If I could go back to the start of this project with everything I know now, it would be this:</p>
+
+        <div class="insight"><p>Function calling is not a feature. It's a discipline. Most teams treat it as the former they wire up a few tools, it works in the demo, and they move on. The teams that treat it as a discipline with schema governance, token budgets, observability, security review, and failure testing built in from day one those are the ones that actually ship reliable AI systems in production.</p></div>
+
+        <p>The gap between those two groups is where most of the pain in this industry right now is living. And it's entirely closeable not with better models, but with better engineering around the models you already have.</p>
+
+        <h3>The Six Things That Actually Matter</h3>
+        <p><strong>Schema quality determines tool reliability.</strong> More than the model version, more than the prompt length. Get the parameter names and descriptions right.</p>
+        <p><strong>Determinism is a design choice, not a model property.</strong> Put your math in code. Let the model handle language.</p>
+        <p><strong>Circuit breakers must live in code.</strong> The model cannot reliably stop itself. Your middleware must.</p>
+        <p><strong>Observability is not optional in production.</strong> You cannot debug what you cannot trace. Every hop needs a log, every session needs a trace ID.</p>
+        <p><strong>Migration is an API design problem.</strong> Wrapping existing logic correctly names, descriptions, error contracts is the real work. The AI part is the easy part.</p>
+        <p><strong>Governance is upstream, not inline.</strong> At production scale, humans cannot approve every decision. Design your confidence thresholds deliberately, log everything, and review the exceptions. That's the only oversight model that's sustainable in a regulated environment.</p>
+
+        <div class="callout green">If any of these patterns resonate with problems you're solving, I'd love to hear how your team is approaching it. The engineering discipline around function calling is still being written and the teams building it carefully right now are defining what reliable AI in production looks like.</div>
+      </section>
+
+    </article>
+
+    <hr class="section-divider" id="references">
+    <div class="abstract-block" style="padding:1.75rem 2rem;">
+
+      <p style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;">Software Architecture Patterns</p>
+
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:0.5rem;">
+        [1] Microsoft Azure Architecture Center. <em>Anti-Corruption Layer Pattern.</em>
+        <a href="https://learn.microsoft.com/en-us/azure/architecture/patterns/anti-corruption-layer" target="_blank" rel="noopener" style="color:var(--gold-dim);word-break:break-all;">learn.microsoft.com/en-us/azure/architecture/patterns/anti-corruption-layer</a>
+      </p>
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:0.5rem;">
+        [2] Fowler, M. <em>Strangler Fig Application.</em> martinfowler.com.
+        <a href="https://martinfowler.com/bliki/StranglerFigApplication.html" target="_blank" rel="noopener" style="color:var(--gold-dim);">martinfowler.com/bliki/StranglerFigApplication.html</a>
+      </p>
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:1.5rem;">
+        [3] Fowler, M. <em>Circuit Breaker.</em> martinfowler.com.
+        <a href="https://martinfowler.com/bliki/CircuitBreaker.html" target="_blank" rel="noopener" style="color:var(--gold-dim);">martinfowler.com/bliki/CircuitBreaker.html</a>
+      </p>
+
+      <p style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;">AI Protocols and Standards</p>
+
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:0.5rem;">
+        [4] Anthropic et al. <em>Model Context Protocol (MCP): Introduction and Architecture.</em> Official MCP Documentation.
+        <a href="https://modelcontextprotocol.io/docs/getting-started/intro" target="_blank" rel="noopener" style="color:var(--gold-dim);">modelcontextprotocol.io/docs/getting-started/intro</a>
+      </p>
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:1.5rem;">
+        [5] Model Context Protocol. <em>Tools Specification.</em>
+        <a href="https://modelcontextprotocol.io/specification/2025-11-25/server/tools" target="_blank" rel="noopener" style="color:var(--gold-dim);">modelcontextprotocol.io/specification/2025-11-25/server/tools</a>
+      </p>
+
+      <p style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;">AWS Architecture and Observability</p>
+
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:1.5rem;">
+        [6] Amazon Web Services. <em>Observability and Monitoring for Agentic AI on AWS.</em> AWS Prescriptive Guidance.
+        <a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/agentic-ai-serverless/observability-and-monitoring.html" target="_blank" rel="noopener" style="color:var(--gold-dim);word-break:break-all;">docs.aws.amazon.com/prescriptive-guidance/latest/agentic-ai-serverless/observability-and-monitoring.html</a>
+      </p>
+
+      <p style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;">US Retirement Regulations</p>
+
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:0.5rem;">
+        [7] Internal Revenue Service. <em>Retirement Topics: 401(k) and Profit-Sharing Plan Contribution Limits.</em> IRS.gov.
+        <a href="https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-401k-and-profit-sharing-plan-contribution-limits" target="_blank" rel="noopener" style="color:var(--gold-dim);word-break:break-all;">irs.gov/retirement-plans/plan-participant-employee/retirement-topics-401k-and-profit-sharing-plan-contribution-limits</a>
+      </p>
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:0.5rem;">
+        [8] Internal Revenue Service. <em>Retirement Topics — Required Minimum Distributions (RMDs).</em> IRS.gov.
+        <a href="https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-required-minimum-distributions-rmds" target="_blank" rel="noopener" style="color:var(--gold-dim);word-break:break-all;">irs.gov/retirement-plans/plan-participant-employee/retirement-topics-required-minimum-distributions-rmds</a>
+      </p>
+      <p style="font-size:0.88rem;line-height:2;margin-bottom:0;">
+        [9] US Department of Labor. <em>ERISA: Retirement Plans and the Employee Retirement Income Security Act.</em> dol.gov.
+        <a href="https://www.dol.gov/agencies/ebsa/about-ebsa/our-activities/resource-center/faqs/retirement-plans-and-erisa" target="_blank" rel="noopener" style="color:var(--gold-dim);">dol.gov/agencies/ebsa/about-ebsa/our-activities/resource-center/faqs/retirement-plans-and-erisa</a>
+      </p>
+
+    </div>
+
+  </div>
+
+  <footer>
+    <p>© 2026 Brij Mohan · <a href="/">bmdayal.github.io</a></p>
+    <p><a href="/blog/">← All Articles</a></p>
+  </footer>
+
+</body>
+</html>
