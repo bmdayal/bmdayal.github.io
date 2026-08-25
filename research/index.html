@@ -3,229 +3,168 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Research & Publications — Brij Mohan</title>
-  <meta name="description" content="Peer-reviewed research publications by Brij Mohan. Springer LNCS, IEEE — Agentic AI, AIOps, Cloud Intelligence." />
+  <meta name="description" content="Peer-reviewed research by Brij Mohan across enterprise AI, AIOps, financial technology, cloud intelligence, and autonomous systems." />
+  <meta name="author" content="Brij Mohan" />
+  <meta name="theme-color" content="#0a1020" />
+  <title>Research & Publications | Brij Mohan</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=JetBrains+Mono:wght@300;400;500&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg: #07090f; --bg2: #0d1117; --bg3: #131922;
-      --gold: #c9a84c; --gold-dim: #8a6e2f;
-      --text: #e8e6e0; --text-dim: #8a8880; --text-faint: #3a3835;
-      --border: #1e2530; --radius: 4px;
-    }
-    body { background: var(--bg); color: var(--text); font-family: 'Lato', sans-serif; font-weight: 300; line-height: 1.7; }
-
-    nav {
-      position: sticky; top: 0; z-index: 100;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 1.25rem 3rem;
-      background: rgba(7,9,15,0.92); backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-    }
-    .nav-logo { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--gold); letter-spacing: 0.15em; text-decoration: none; }
-    .nav-back { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--text-dim); text-decoration: none; text-transform: uppercase; transition: color 0.2s; }
-    .nav-back:hover { color: var(--gold); }
-
-    .page-hero {
-      padding: 5rem 3rem 3rem; border-bottom: 1px solid var(--border);
-      position: relative; overflow: hidden;
-    }
-    .page-hero::before {
-      content: 'RESEARCH';
-      position: absolute; right: 2rem; top: 50%; transform: translateY(-50%);
-      font-family: 'Playfair Display', serif; font-size: 6rem; font-weight: 900;
-      color: var(--text-faint); letter-spacing: -0.04em; pointer-events: none; user-select: none;
-    }
-    .page-eyebrow {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.2em;
-      color: var(--gold); text-transform: uppercase; margin-bottom: 1rem;
-      display: flex; align-items: center; gap: 0.6rem;
-    }
-    .page-eyebrow::before { content: ''; display: inline-block; width: 24px; height: 1px; background: var(--gold); }
-    .page-title { font-family: 'Playfair Display', serif; font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 900; line-height: 1.1; margin-bottom: 1rem; }
-    .page-subtitle { font-size: 1rem; color: var(--text-dim); max-width: 560px; line-height: 1.85; }
-
-    .scholar-strip {
-      display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.5rem;
-    }
-    .scholar-link {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.1em;
-      text-transform: uppercase; text-decoration: none; color: var(--gold);
-      border: 1px solid var(--gold-dim); padding: 0.45rem 1rem; border-radius: var(--radius);
-      transition: background 0.2s;
-    }
-    .scholar-link:hover { background: rgba(201,168,76,0.08); }
-
-    .content { max-width: 900px; margin: 0 auto; padding: 4rem 3rem; }
-
-    .section-label {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.2em;
-      color: var(--gold); text-transform: uppercase; margin-bottom: 1.5rem;
-      display: flex; align-items: center; gap: 0.6rem;
-    }
-    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-    .papers { display: flex; flex-direction: column; gap: 1.5rem; }
-
-    .paper-card {
-      background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 2rem; text-decoration: none; color: inherit; display: block;
-      transition: border-color 0.2s, background 0.2s;
-    }
-    .paper-card:hover { border-color: var(--gold-dim); background: var(--bg3); }
-
-    .paper-meta {
-      display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-bottom: 0.85rem;
-    }
-    .paper-venue {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em;
-      text-transform: uppercase; color: var(--gold);
-      border: 1px solid var(--gold-dim); background: rgba(201,168,76,0.06);
-      padding: 0.2rem 0.6rem; border-radius: 2px;
-    }
-    .paper-year {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em;
-      color: var(--text-faint);
-    }
-    .paper-status {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; letter-spacing: 0.08em;
-      color: var(--text-dim); border: 1px solid var(--border); padding: 0.15rem 0.5rem; border-radius: 2px;
-    }
-    .paper-title {
-      font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 700;
-      color: var(--text); margin-bottom: 0.6rem; line-height: 1.4;
-    }
-    .paper-authors {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.04em;
-      color: var(--text-dim); margin-bottom: 0.75rem; line-height: 1.6;
-    }
-    .paper-authors strong { color: var(--gold); font-weight: 500; }
-    .paper-abstract {
-      font-size: 0.875rem; color: var(--text-dim); line-height: 1.8; margin-bottom: 1.25rem;
-    }
-    .paper-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-    .paper-link {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em;
-      text-transform: uppercase; color: var(--text-dim); text-decoration: none;
-      border: 1px solid var(--border); padding: 0.35rem 0.85rem; border-radius: var(--radius);
-      transition: border-color 0.2s, color 0.2s;
-    }
-    .paper-link:hover { border-color: var(--gold-dim); color: var(--gold); }
-    .paper-link.primary { border-color: var(--gold-dim); color: var(--gold); }
-
-    .paper-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1rem; }
-    .paper-tag {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; letter-spacing: 0.06em;
-      color: var(--text-faint); border: 1px solid var(--border); padding: 0.15rem 0.5rem; border-radius: 2px;
-    }
-
-    footer {
-      padding: 2rem 3rem; border-top: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between; margin-top: 2rem;
-    }
-    footer p { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em; color: var(--text-faint); }
-    footer a { color: var(--gold-dim); text-decoration: none; }
-    footer a:hover { color: var(--gold); }
-
-    @media (max-width: 768px) {
-      nav { padding: 1rem 1.5rem; }
-      .page-hero { padding: 4rem 1.5rem 2rem; }
-      .page-hero::before { display: none; }
-      .content { padding: 2rem 1.5rem; }
-      footer { flex-direction: column; gap: 0.5rem; }
-    }
-  </style>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-
-  <nav>
-    <a href="../" class="nav-logo">BM / bmdayal</a>
-    <a href="../" class="nav-back">← Back Home</a>
-  </nav>
-
-  <div class="page-hero">
-    <div class="page-eyebrow">Academic Research</div>
-    <h1 class="page-title">Research &amp;<br />Publications</h1>
-    <p class="page-subtitle">
-      Peer-reviewed publications spanning Agentic AI, AIOps, graph-augmented intelligence, and autonomous cloud workload management.
-    </p>
-    <div class="scholar-strip">
-      <a href="https://scholar.google.com/citations?user=OJgNT_oAAAAJ&hl=en" class="scholar-link" target="_blank">→ Google Scholar</a>
-      <a href="https://orcid.org/0009-0001-3374-591X" class="scholar-link" target="_blank">→ OrcID: 0009-0001-3374-591X</a>
+  <a class="skip-link" href="#main">Skip to content</a>
+  
+  <header class="site-header">
+    <div class="container nav-shell">
+      <a class="brand" href="/">
+        <span class="brand-mark">BM</span><span class="brand-text">Brij Mohan</span>
+      </a>
+      <button class="nav-toggle" aria-expanded="false" aria-controls="primary-nav" aria-label="Toggle navigation">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="nav-links" id="primary-nav">
+        <a href="/">Home</a>
+<a href="/research/" aria-current="page">Research</a>
+<a href="/blog/">Writing</a>
+<a href="/talks/">Speaking</a>
+<a href="/judging/">Service</a>
+<a href="/projects/">Projects</a>
+        <a class="nav-cta" href="https://topmate.io/mohanbrij" target="_blank" rel="noopener noreferrer">Book a 1:1</a>
+      </nav>
+    </div>
+  </header>
+  <main id="main">
+    
+<section class="inner-hero">
+  <div class="container inner-hero-grid">
+    <div>
+      <p class="eyebrow">Research & Publications</p>
+      <h1 class="inner-title">Research grounded in enterprise reality.</h1>
+      <p class="inner-lede">
+        Peer-reviewed work across enterprise AI, autonomous systems, cloud intelligence,
+        financial technology, explainability, and responsible automation.
+      </p>
+      <div class="hero-actions">
+        <a class="button button-primary" href="https://scholar.google.com/citations?user=OJgNT_oAAAAJ&hl=en" target="_blank" rel="noopener noreferrer">Google Scholar</a>
+        <a class="button button-secondary" href="https://orcid.org/0009-0001-3374-591X" target="_blank" rel="noopener noreferrer">ORCID</a>
+      </div>
+    </div>
+    <div class="inner-stat-panel">
+      <div class="inner-stat"><strong>IEEE</strong><span>Conference publications & research presentations</span></div>
+      <div class="inner-stat"><strong>Springer</strong><span>Conference and proceedings research</span></div>
+      <div class="inner-stat"><strong>Journal</strong><span>Cloud modernization & applied systems research</span></div>
     </div>
   </div>
+</section>
 
-  <div class="content">
-    <div class="section-label">Published Papers</div>
-    <div class="papers">
+<section class="subnav">
+  <div class="container subnav-row">
+    <a href="#themes">Research themes</a>
+    <a href="#publications">Publications</a>
+    <a href="#profiles">Research profiles</a>
+  </div>
+</section>
 
-      <!-- PAPER 1 — Springer LNCS -->
-      <a href="./ga3ops/" class="paper-card">
-        <div class="paper-meta">
-          <span class="paper-venue">Springer LNCS</span>
-          <span class="paper-year">2026</span>
-          <span class="paper-status">Published</span>
-        </div>
-        <div class="paper-title">
-          Graph-Augmented Agentic AIOps with Trust-Governed Digital Twins for Autonomous Cloud Workload Intelligence
-        </div>
-        <div class="paper-authors">
-          <strong>Brij Mohan</strong>, Uday Kiran Chilakalapalli
-        </div>
-        <div class="paper-abstract">
-          Introduces the GA³Ops framework — a graph-augmented, trust-governed approach to agentic AIOps using digital twins for autonomous cloud workload intelligence. Key technologies include THKG, TGNN, VAE, Temporal Fusion Transformer, CMDP, Dyna-Q, MARL, LangGraph, Amazon Neptune, and AWS SageMaker.
-        </div>
-        <div class="paper-links">
-          <span class="paper-link primary">View Full Paper →</span>
-        </div>
-        <div class="paper-tags">
-          <span class="paper-tag">GA³Ops</span>
-          <span class="paper-tag">Agentic AIOps</span>
-          <span class="paper-tag">Digital Twins</span>
-          <span class="paper-tag">MARL</span>
-          <span class="paper-tag">LangGraph</span>
-          <span class="paper-tag">Amazon Neptune</span>
-          <span class="paper-tag">AWS SageMaker</span>
-        </div>
-      </a>
-
-      <!-- PAPER 2 — IEEE CCWC -->
-      <a href="./ieee-ccwc-2026/" class="paper-card">
-        <div class="paper-meta">
-          <span class="paper-venue">IEEE CCWC 2026</span>
-          <span class="paper-year">2026</span>
-          <span class="paper-status">Published</span>
-        </div>
-        <div class="paper-title">
-          <!-- Add full title when you share the paper link -->
-          IEEE CCWC 2026 Publication
-        </div>
-        <div class="paper-authors">
-          <strong>Brij Mohan</strong>, Surasani, Kumar
-        </div>
-        <div class="paper-abstract">
-          <!-- Add abstract when you share the paper link -->
-          Full details coming soon. DOI: 10.1109/CCWC67433.2026.11393832
-        </div>
-        <div class="paper-links">
-          <a href="https://doi.org/10.1109/CCWC67433.2026.11393832" class="paper-link primary" target="_blank" onclick="event.stopPropagation()">DOI →</a>
-          <span class="paper-link">View Full Paper →</span>
-        </div>
-        <div class="paper-tags">
-          <span class="paper-tag">IEEE</span>
-          <span class="paper-tag">CCWC 2026</span>
-        </div>
-      </a>
-
+<section class="page-section page-section-light" id="themes">
+  <div class="container">
+    <div class="page-heading">
+      <p class="eyebrow eyebrow-dark">Research Themes</p>
+      <h2>Practical intelligence for complex systems.</h2>
+      <p>My research agenda is shaped by real engineering problems: how to make AI systems useful, explainable, governable, and operationally resilient.</p>
+    </div>
+    <div class="topic-grid">
+      <article class="topic-card"><span class="topic-kicker">01 · AI</span><h3>Agentic & Multi-Agent Systems</h3><p>Autonomous workflows, coordination, governance, digital twins, and human oversight for enterprise use cases.</p></article>
+      <article class="topic-card"><span class="topic-kicker">02 · Cloud</span><h3>AIOps & Cloud Intelligence</h3><p>Anomaly detection, graph-augmented reasoning, observability, workload intelligence, and adaptive operations.</p></article>
+      <article class="topic-card"><span class="topic-kicker">03 · FinTech</span><h3>Financial AI & Automation</h3><p>Reconciliation, compliance, market intelligence, and trustworthy AI patterns for regulated financial systems.</p></article>
     </div>
   </div>
+</section>
 
-  <footer>
-    <p>© 2026 Brij Mohan · <a href="../">bmdayal.github.io</a></p>
-    <p><a href="https://scholar.google.com/citations?user=OJgNT_oAAAAJ&hl=en" target="_blank">Google Scholar</a> &nbsp;·&nbsp; <a href="https://orcid.org/0009-0001-3374-591X" target="_blank">OrcID</a></p>
+<section class="page-section page-section-white" id="publications">
+  <div class="container">
+    <div class="page-heading">
+      <p class="eyebrow eyebrow-dark">Selected Publications</p>
+      <h2>Peer-reviewed research and applied scholarship.</h2>
+    </div>
+    <div class="portfolio-list">
+      <article class="portfolio-item">
+        <div class="portfolio-meta">2026<br>IEEE SoutheastCon</div>
+        <div class="portfolio-main"><h3>X-AD: Explainable Anomaly Detection in Serverless Systems</h3><p>Research on explainable anomaly detection for serverless environments, connecting operational observability with interpretable AI methods.</p></div>
+        <div class="portfolio-tags"><span class="mini-tag">AIOps</span><span class="mini-tag">Explainable AI</span><span class="mini-tag">Serverless</span></div>
+      </article>
+      <article class="portfolio-item">
+        <div class="portfolio-meta">2026<br>IEEE CCWC</div>
+        <div class="portfolio-main"><h3>Autonomous Data Stewardship: Multi-Agent AI for Real-Time MDM in Financial Services</h3><p>A multi-agent approach to data stewardship and master data management, designed for real-time quality, governance, and enterprise financial workflows.</p></div>
+        <div class="portfolio-tags"><span class="mini-tag">Multi-Agent AI</span><span class="mini-tag">MDM</span><span class="mini-tag">FinTech</span></div>
+      </article>
+      <article class="portfolio-item">
+        <div class="portfolio-meta">2026<br>ICGIS</div>
+        <div class="portfolio-main"><h3>RegAgent: LLM-Powered Autonomous Agents for Adaptive Financial Regulatory Compliance Monitoring and Reporting</h3><p>Explores agent-based regulatory intelligence and adaptive compliance workflows. Recognized with Best Paper and Best Presenter honors.</p></div>
+        <div class="portfolio-tags"><span class="mini-tag">LLM Agents</span><span class="mini-tag">Compliance</span><span class="mini-tag">Best Paper</span></div>
+      </article>
+      <article class="portfolio-item">
+        <div class="portfolio-meta">2026<br>ESIC</div>
+        <div class="portfolio-main"><h3>Multi-Agent AI Framework for Autonomous Financial Reconciliation in Wealth Management</h3><p>Investigates multi-agent coordination for reconciliation workflows in wealth management, with emphasis on automation and control.</p></div>
+        <div class="portfolio-tags"><span class="mini-tag">Multi-Agent AI</span><span class="mini-tag">Reconciliation</span><span class="mini-tag">WealthTech</span></div>
+      </article>
+      <article class="portfolio-item">
+        <div class="portfolio-meta">2026<br>ICoECIT</div>
+        <div class="portfolio-main"><h3>Hybrid Deep Learning Framework Integrating Real-Time Social Sentiment for Stock Market Prediction</h3><p>Lead-author research combining market signals with real-time social sentiment in a hybrid deep learning framework.</p></div>
+        <div class="portfolio-tags"><span class="mini-tag">Deep Learning</span><span class="mini-tag">Sentiment</span><span class="mini-tag">Markets</span></div>
+      </article>
+      <article class="portfolio-item">
+        <div class="portfolio-meta">2026<br>IEEE KST</div>
+        <div class="portfolio-main"><h3>Semantic Web Healthcare Chatbot Using Ontology and Data Mining for Patient Information Assistance</h3><p>Applies ontology-driven semantic methods and data mining to improve contextual patient information assistance.</p></div>
+        <div class="portfolio-tags"><span class="mini-tag">Semantic Web</span><span class="mini-tag">Ontology</span><span class="mini-tag">Healthcare AI</span></div>
+      </article>
+      <article class="portfolio-item">
+        <div class="portfolio-meta">2025<br>IJACSA</div>
+        <div class="portfolio-main"><h3>From Legacy to Cloud: Migration Strategies for Traditional Financial Institutions Using AWS</h3><p>Journal research on modernization strategy, architectural tradeoffs, and cloud migration patterns for traditional financial institutions.</p></div>
+        <div class="portfolio-tags"><span class="mini-tag">AWS</span><span class="mini-tag">Cloud Migration</span><span class="mini-tag">Financial Services</span></div>
+      </article>
+      <article class="portfolio-item">
+        <div class="portfolio-meta">2026<br>Springer</div>
+        <div class="portfolio-main"><h3>Graph-Augmented Agentic AIOps with Trust-Governed Digital Twins for Autonomous Cloud Workload Intelligence</h3><p>Graph-augmented agentic AIOps combining trust governance, digital twins, graph intelligence, and autonomous cloud workload reasoning.</p><p style="margin-top:10px"><a class="inline-link" href="./ga3ops/">View project page →</a></p></div>
+        <div class="portfolio-tags"><span class="mini-tag">GA³Ops</span><span class="mini-tag">Digital Twins</span><span class="mini-tag">Agentic AIOps</span></div>
+      </article>
+    </div>
+    <p class="small-disclaimer">Selected publications shown. Additional co-authored and conference research is available through Google Scholar and ORCID.</p>
+  </div>
+</section>
+
+<section class="page-cta" id="profiles">
+  <div class="container page-cta-card">
+    <div>
+      <h2>Interested in research collaboration?</h2>
+      <p>I’m open to thoughtful collaboration around enterprise AI, financial systems, AIOps, agentic architectures, and applied cloud intelligence.</p>
+    </div>
+    <a class="button button-light" href="https://www.linkedin.com/in/bmdayal/" target="_blank" rel="noopener noreferrer">Connect on LinkedIn</a>
+  </div>
+</section>
+
+  </main>
+  
+  <footer class="site-footer">
+    <div class="container footer-row">
+      <div><strong>Brij Mohan</strong><span>Enterprise AI · Financial Technology · Cloud Architecture</span></div>
+      <p>© 2026 Brij Mohan. All rights reserved.</p>
+    </div>
   </footer>
-
+  <script>
+    const toggle = document.querySelector('.nav-toggle');
+    const nav = document.querySelector('.nav-links');
+    if (toggle && nav) {
+      toggle.addEventListener('click', () => {
+        const expanded = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!expanded));
+        nav.classList.toggle('is-open');
+      });
+      nav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+        nav.classList.remove('is-open');
+        toggle.setAttribute('aria-expanded','false');
+      }));
+    }
+  </script>
 </body>
 </html>
