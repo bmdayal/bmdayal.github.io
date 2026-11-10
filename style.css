@@ -489,6 +489,26 @@ a {
   color: #667085;
 }
 
+.book-card {
+  min-height: auto;
+}
+
+.book-card .book-subtitle {
+  margin-bottom: 16px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.book-card .book-detail {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.book-card .inline-link {
+  display: inline-block;
+  margin-top: 12px;
+}
+
 .section-dark {
   background:
     radial-gradient(circle at 15% 20%, rgba(91, 108, 255, 0.12), transparent 24%),
@@ -626,6 +646,15 @@ a {
   margin: 0;
   color: rgba(255, 255, 255, 0.8);
   font-size: 14px;
+}
+
+.service-actions {
+  margin-top: 24px;
+}
+
+#books,
+#recent-service {
+  scroll-margin-top: 76px;
 }
 
 .recognition-list {
